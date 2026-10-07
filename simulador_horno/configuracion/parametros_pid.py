@@ -4,7 +4,7 @@
 # Ganancias con CONFIGURACIÓN POR DEFECTO. El usuario las modifica en
 # caliente desde el menú (opción 1 -> formularios.configurar_pid).
 
-KP = 35    # Ganancia proporcional
+KP = 200   # Ganancia proporcional
 KI = 10    # Ganancia integral
 KD = 2     # Ganancia derivativa
 

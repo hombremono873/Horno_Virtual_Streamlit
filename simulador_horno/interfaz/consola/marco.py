@@ -10,7 +10,7 @@ Todas las pantallas comparten el mismo esquema:
     └─ pie (atajos de teclado) ─────────────────────────┘
 
 La navegación es por teclado directo (``readchar``): flechas + Enter, o la
-tecla del número. No hay que pulsar Enter dos veces como antes.
+tecla del número.
 """
 import readchar
 from readchar import key as K
@@ -26,11 +26,12 @@ from rich.text import Text
 
 from simulador_horno.configuracion import parametros_horno as vhorno
 from simulador_horno.configuracion import parametros_pid as vpid
+from simulador_horno.configuracion import parametros_simulacion as vsim
 from simulador_horno.estilos import tema
 
 console = Console()
 
-ATAJOS_MENU = [("↑ ↓", "moverse"), ("1-7", "acceso directo"), ("Enter", "elegir"), ("Q · Esc", "salir")]
+ATAJOS_MENU = [("↑ ↓", "moverse"), ("1-8", "acceso directo"), ("Enter", "elegir"), ("Q · Esc", "salir")]
 ATAJOS_INFO = [("cualquier tecla", "continuar")]
 
 
@@ -103,11 +104,13 @@ def panel_estado():
     t.add_row("", "")
     t.add_row("T. objetivo", f"{vhorno.T_SET:g} °C")
     t.add_row("T. ambiente", f"{vhorno.T_AMB:g} °C")
-    t.add_row("Ganancia B", f"{vhorno.B:g}")
+    t.add_row("T. máx. equilibrio", f"{vhorno.T_MAX_EQ:g} °C")
+    t.add_row("Ganancia B", f"{vhorno.B:.4f} °C/s")
     t.add_row("Constante τ", f"{vhorno.TAU:g} s")
     t.add_row("Paso Δt", f"{vhorno.DT:g} s")
     activas = [n for n, on in (("oscilante", vhorno.error_oscilante), ("impulso", vhorno.flag_error)) if on]
     t.add_row("Perturbación", ", ".join(activas) or "ninguna")
+    t.add_row("Velocidad", vsim.velocidad)
     return Panel(
         t, title="Estado del sistema", title_align="left",
         box=box.ROUNDED, border_style=tema.C_MARCO, padding=(1, 2),
@@ -125,13 +128,14 @@ def mostrar_info(cuerpo, *, migas=None, esperar=True):
             leer_tecla()
 
 
-def menu_interactivo(titulo, items, *, migas=None):
+def menu_interactivo(titulo, items, *, migas=None, inicial=0):
     """Menú navegable. ``items`` = lista de ``(clave, etiqueta, descripción)``.
 
     Devuelve la ``clave`` elegida. Esc o 'q' devuelven la clave del último ítem.
+    ``inicial`` es el índice resaltado al abrir.
     """
     claves = [c for c, _, _ in items]
-    idx = 0
+    idx = inicial
     with console.screen() as pantalla:
         while True:
             filas = Table.grid(padding=(0, 1))

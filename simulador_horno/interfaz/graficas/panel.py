@@ -17,9 +17,13 @@ Un solo lienzo con cuatro vistas y una escala de color común:
 - "Evolución del color térmico" es el histórico de esa colorimetría.
 - La franja de la derecha es la escala de color en °C.
 
-El bucle de simulación es síncrono: cada paso llama a :meth:`actualizar`,
-que refresca los datos y procesa los eventos de Qt (equivale al antiguo
-``fig.canvas.flush_events()`` de matplotlib).
+El eje de tiempo está en MINUTOS simulados: una corrida dura horas y en
+segundos los ejes serían ilegibles. Tendencia, error y franja leen el mismo
+historial (muestreado por segundo simulado), de modo que el arranque se ve
+completo a cualquier velocidad.
+
+El bucle de simulación es síncrono: cada refresco llama a :meth:`actualizar`,
+que pinta los datos y procesa los eventos de Qt.
 """
 import numpy as np
 import pyqtgraph as pg
@@ -68,7 +72,7 @@ class PanelGraficas:
         self.p_err.setTitle("Error de control  (setpoint − temperatura)", size="11pt")
         self.p_err.showGrid(x=True, y=True, alpha=tema.G_CUADRICULA)
         self.p_err.setLabel("left", "Error", units="°C")
-        self.p_err.setLabel("bottom", "Tiempo", units="s")
+        self.p_err.setLabel("bottom", "Tiempo simulado (min)")
         self.p_err.setXLink(self.p_temp)
         self.p_err.addLine(y=0, pen=pg.mkPen(tema.G_CERO, width=1, style=_DOT))
         self.c_err = self.p_err.plot(pen=pg.mkPen(tema.G_ERROR, width=2))
@@ -113,14 +117,13 @@ class PanelGraficas:
         # -- Evolución del color térmico (histórico) ----------------
         self.p_img = self.win.addPlot(row=2, col=0, colspan=3)
         self.p_img.setTitle("Evolución del color térmico del horno", size="11pt")
-        self.p_img.setLabel("bottom", "Tiempo", units="s")
+        self.p_img.setLabel("bottom", "Tiempo simulado (min)")
         self.p_img.hideAxis("left")
         self.p_img.setMouseEnabled(x=False, y=False)
         self.p_img.setMaximumHeight(150)
         self.img_franja = pg.ImageItem(axisOrder="row-major")
         self.img_franja.setLookupTable(self._lut)
         self.p_img.addItem(self.img_franja)
-        self._franja = []
 
         rejilla = self.win.ci.layout
         rejilla.setColumnStretchFactor(0, 6)
@@ -138,9 +141,11 @@ class PanelGraficas:
         return self.win.isVisible()
 
     def actualizar(self, tiempos, temperaturas, errores, T, T_set):
+        minutos = np.asarray(tiempos, dtype=float) / 60.0
+
         # tendencia + error
-        self.c_temp.setData(tiempos, temperaturas)
-        self.c_err.setData(tiempos, errores)
+        self.c_temp.setData(minutos, temperaturas)
+        self.c_err.setData(minutos, errores)
         self.l_sp.setValue(T_set)
 
         # colorimetría de las paredes (paredes a T, cavidad algo más fría)
@@ -150,12 +155,12 @@ class PanelGraficas:
         self.img_horno.setImage(marco, autoLevels=False, levels=self._niveles)
         self.txt_horno.setText(f"{T:.0f} °C")
 
-        # histórico de color
-        self._franja.append(float(T))
-        fila = np.asarray(self._franja, dtype=float).reshape(1, -1)
-        if tiempos:
-            self.img_franja.setRect(QtCore.QRectF(0.0, 0.0, float(tiempos[-1]) or 1.0, 1.0))
-        self.img_franja.setImage(fila, autoLevels=False, levels=self._niveles)
+        # histórico de color (mismo historial que las curvas)
+        if len(minutos):
+            fila = np.asarray(temperaturas, dtype=float).reshape(1, -1)
+            ancho = float(minutos[-1] - minutos[0]) or 1.0
+            self.img_franja.setRect(QtCore.QRectF(float(minutos[0]), 0.0, ancho, 1.0))
+            self.img_franja.setImage(fila, autoLevels=False, levels=self._niveles)
 
         self.app.processEvents()
 

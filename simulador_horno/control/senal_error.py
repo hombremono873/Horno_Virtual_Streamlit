@@ -9,9 +9,10 @@ Nota de arquitectura: la alarma sonora del impulso se dispara aquí para
 reproducir el comportamiento original. En una iteración futura conviene
 que sea la capa de simulación quien decida notificar el evento.
 """
+from simulador_horno.configuracion import limites
 from simulador_horno.configuracion import parametros_horno as vhorno
-from simulador_horno.modelo.perturbaciones import get_ruido, perturbacion_total
 from simulador_horno.interfaz.alarmas import sonora
+from simulador_horno.modelo.perturbaciones import get_ruido, perturbacion_total
 
 
 def construir_error(t, T):
@@ -22,10 +23,13 @@ def construir_error(t, T):
         error += get_ruido(t)
 
     if vhorno.flag_error:
-        vhorno.delta_T, hay_impulso = perturbacion_total(
-            t, probabilidad=0.02, duracion=3, magnitud=80
+        vhorno.delta_T, impulso_nuevo = perturbacion_total(
+            t, vhorno.DT,
+            tasa_hora=limites.TASA_IMPULSOS_HORA,
+            duracion=limites.DURACION_IMPULSO,
+            magnitud=limites.MAGNITUD_IMPULSO,
         )
-        sonora.alarma_impulso(hay_impulso)
+        sonora.alarma_impulso(impulso_nuevo)   # suena una vez, al empezar el impulso
         error += vhorno.delta_T
 
     return error

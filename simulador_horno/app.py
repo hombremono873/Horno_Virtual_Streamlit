@@ -18,8 +18,12 @@ ACCIONES = {
     "3": formularios.configurar_error_oscilante,
     "4": formularios.configurar_error_impulso,
     "5": formularios.acotar_integral,
-    "6": _correr_simulacion,
+    "6": formularios.configurar_velocidad,
+    "7": _correr_simulacion,
 }
+
+OPCION_SIMULAR = "7"   # vuelve al menú sin pausa (la simulación ya la pidió)
+OPCION_SALIR = "8"
 
 
 def ejecutar():
@@ -27,13 +31,13 @@ def ejecutar():
         bienvenida.mostrar()
         while True:
             opcion = menu.mostrar_menu()
-            if opcion == "7":
+            if opcion == OPCION_SALIR:
                 break
             accion = ACCIONES.get(opcion)
             if accion is None:
                 continue
             accion()
-            if opcion != "6":
+            if opcion != OPCION_SIMULAR:
                 marco.pausa()
         marco.console.clear()
         marco.console.print(f"[{tema.C_ALERTA}]Simulador cerrado.[/]")

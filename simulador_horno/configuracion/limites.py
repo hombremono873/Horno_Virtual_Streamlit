@@ -8,9 +8,30 @@
 U_MAX = 20000.0        # escala de saturación de la señal de control (control.escalado)
 UMBRAL_INTEGRAL = 2000 # a partir de aquí actúa el anti-windup (control.pid)
 
+# --- Velocidad de simulación -------------------------------------
+# Relación tiempo simulado / tiempo real. None = "máxima": sin esperas,
+# tan rápido como permita el equipo. La aceleración nunca toca DT.
+VELOCIDADES = {
+    "x1": 1,
+    "x10": 10,
+    "x60": 60,
+    "x600": 600,
+    "máxima": None,
+}
+
 # --- Simulación ------------------------------------------------
-MAX_MUESTRAS = 5000    # tamaño máximo de los historiales en memoria
-REFRESCO_HZ = 4        # refresco de la tabla rich y de las gráficas
+REFRESCO_HZ = 4            # refrescos por segundo real de la tabla rich y las gráficas
+INTERVALO_MUESTREO = 1.0   # segundos SIMULADOS entre muestras del historial
+HORAS_HISTORIAL = 5        # horas simuladas que conserva el historial
+MAX_MUESTRAS = int(HORAS_HISTORIAL * 3600 / INTERVALO_MUESTREO)
+
+# --- Perturbación de impulso (control.senal_error) ----------------
+# Tasa expresada por hora SIMULADA para que no dependa de DT. Con ~6/h
+# una corrida típica (~75 min) recibe unos 7 impulsos: visibles sin
+# saturar la gráfica.
+TASA_IMPULSOS_HORA = 6
+DURACION_IMPULSO = 3       # s simulados
+MAGNITUD_IMPULSO = 80      # °C sumados al error
 
 # --- Escala de color térmico (interfaz.graficas.panel) ---
 TEMP_MIN_COLOR = 30

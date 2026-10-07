@@ -1,4 +1,4 @@
-"""Formularios de configuración: PID, horno, perturbaciones y límite integral.
+"""Formularios de configuración: PID, horno, perturbaciones, límite integral y velocidad.
 
 Cada formulario escribe directamente sobre los módulos de ``configuracion`` para que
 el cambio surta efecto en la siguiente simulación. ENTER conserva el valor
@@ -6,8 +6,10 @@ actual en cada campo.
 """
 from rich.text import Text
 
+from simulador_horno.configuracion import limites
 from simulador_horno.configuracion import parametros_horno as horno
 from simulador_horno.configuracion import parametros_pid as pid
+from simulador_horno.configuracion import parametros_simulacion as sim
 from simulador_horno.interfaz.consola import marco
 
 console = marco.console
@@ -37,25 +39,39 @@ def configurar_pid():
 # ----------------------------------------------------------------------
 _AYUDA_HORNO = Text.from_markup(
     "Parámetros físicos del horno. ENTER conserva el valor actual.\n\n"
-    "[b]T_AMB[/b]  temperatura ambiente (°C)\n"
-    "[b]T_SET[/b]  temperatura objetivo (°C)\n"
-    "[b]B[/b]      ganancia térmica (°C por unidad de control)\n"
-    "[b]TAU[/b]    constante de tiempo (s)\n"
-    "[b]DT[/b]     paso de simulación (s)"
+    "[b]T_AMB[/b]     temperatura ambiente (°C)\n"
+    "[b]T_SET[/b]     temperatura objetivo (°C)\n"
+    "[b]T_MAX_EQ[/b]  temperatura a potencia plena, u = 1 (°C)\n"
+    "[b]TAU[/b]       constante de tiempo (s)\n"
+    "[b]DT[/b]        paso de integración numérica (s)\n\n"
+    "La ganancia térmica B se calcula sola: B = (T_MAX_EQ − T_AMB) / TAU.\n"
+    "Para acelerar la corrida usa la opción 6 (velocidad), no DT."
 )
+
+
+def _pedir_mayor(nombre, actual, minimo, motivo):
+    """Como ``pedir_float`` pero exige un valor estrictamente mayor que ``minimo``."""
+    while True:
+        valor = marco.pedir_float(nombre, actual)
+        if valor > minimo:
+            return valor
+        console.print(f"[bold red]  {motivo}[/]")
 
 
 def configurar_horno():
     marco.cabecera_seccion("CONFIGURAR HORNO", _AYUDA_HORNO, migas=["Configurar horno"])
     horno.T_AMB = marco.pedir_float("T ambiente (T_AMB)", horno.T_AMB)
     horno.T_SET = marco.pedir_float("Setpoint (T_SET)", horno.T_SET)
-    horno.B = marco.pedir_float("Ganancia térmica (B)", horno.B)
-    horno.TAU = marco.pedir_float("Constante de tiempo (TAU)", horno.TAU)
-    horno.DT = marco.pedir_float("Paso de tiempo (DT)", horno.DT)
+    horno.T_MAX_EQ = _pedir_mayor("T máx. equilibrio (T_MAX_EQ)", horno.T_MAX_EQ, horno.T_AMB,
+                                  "Debe ser mayor que la temperatura ambiente.")
+    horno.TAU = _pedir_mayor("Constante de tiempo (TAU)", horno.TAU, 0, "Debe ser mayor que 0.")
+    horno.DT = _pedir_mayor("Paso de integración (DT)", horno.DT, 0, "Debe ser mayor que 0.")
+    horno.recalcular_B()
     marco.resumen("Horno actualizado", {
         "T_AMB": f"{horno.T_AMB:g} °C",
         "T_SET": f"{horno.T_SET:g} °C",
-        "B": f"{horno.B:g}",
+        "T_MAX_EQ": f"{horno.T_MAX_EQ:g} °C",
+        "B (calculada)": f"{horno.B:.4f} °C/s",
         "TAU": f"{horno.TAU:g} s",
         "DT": f"{horno.DT:g} s",
     })
@@ -111,3 +127,36 @@ def acotar_integral():
             break
         console.print("[bold red]  El valor debe estar entre 0 y 1.[/]")
     marco.resumen("Límite integral actualizado", {"restringir_integral": f"{pid.restringir_integral:g}"})
+
+
+# ----------------------------------------------------------------------
+# Velocidad de simulación (opción 6)
+# ----------------------------------------------------------------------
+_DESCRIPCION_VELOCIDAD = {
+    "x1": "Tiempo real · 1 s simulado por segundo",
+    "x10": "1 min simulado cada 6 s",
+    "x60": "1 min simulado por segundo (recomendada)",
+    "x600": "10 min simulados por segundo",
+    "máxima": "Sin esperas · tan rápido como permita el equipo",
+}
+
+_AYUDA_VELOCIDAD = Text.from_markup(
+    "Comprime el tiempo de EJECUCIÓN, no la física: el paso DT y los\n"
+    "resultados son los mismos a cualquier velocidad."
+)
+
+
+def configurar_velocidad():
+    claves = list(limites.VELOCIDADES)
+    items = [(str(i), clave, _DESCRIPCION_VELOCIDAD[clave]) for i, clave in enumerate(claves, 1)]
+    items.append((str(len(items) + 1), "Volver", "Conservar la velocidad actual"))
+    eleccion = marco.menu_interactivo(
+        "VELOCIDAD DE SIMULACIÓN", items, migas=["Velocidad"],
+        inicial=claves.index(sim.velocidad) if sim.velocidad in claves else 0,
+    )
+    indice = int(eleccion) - 1
+    if indice < len(claves):
+        sim.velocidad = claves[indice]
+
+    marco.cabecera_seccion("VELOCIDAD DE SIMULACIÓN", _AYUDA_VELOCIDAD, migas=["Velocidad"])
+    marco.resumen("Velocidad", {"activa": sim.velocidad})

@@ -1,4 +1,4 @@
-# Herramientas de desarrollo / empaquetado.
+# Herramientas de desarrollo: empaquetado (PyInstaller) y pruebas (pytest).
 # Runtime: usar requirements.txt.
 #
 #   pip install -r requirements.txt -r requirements-dev.txt
@@ -6,6 +6,10 @@
 # Para regenerar dist/main.exe:
 #
 #   pyinstaller main.spec --noconfirm --clean
+#
+# Para ejecutar las pruebas:
+#
+#   python -m pytest
 
 pyinstaller==6.22.2
 pyinstaller-hooks-contrib==2026.7
@@ -14,3 +18,8 @@ packaging==26.2
 pefile==2024.8.26
 pywin32-ctypes==0.2.3
 setuptools==84.0.0
+
+# --- Pruebas (python -m pytest) ----------------------------------
+pytest==9.1.1
+iniconfig==2.3.1             # dependencia de pytest
+pluggy==1.6.0                # dependencia de pytest
