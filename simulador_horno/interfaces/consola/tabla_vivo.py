@@ -1,0 +1,102 @@
+"""Panel de estado que se refresca durante la simulación (rich.Live).
+
+Muestra la lectura instantánea (tiempo, temperatura, setpoint, u, error),
+barras de nivel para T y u, las acciones P/I/D del PID y la configuración
+vigente. ``generar_tabla`` mantiene su firma: la llama ``Simulador._tabla``.
+"""
+from rich import box
+from rich.align import Align
+from rich.console import Console, Group
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+
+from simulador_horno.config import parametros_pid as vpid
+from simulador_horno.config import tema
+
+console = Console()
+
+
+def _lado_a_lado(izq, der):
+    """Dos renderables en columnas, sin depender del ancho exacto del terminal."""
+    grid = Table.grid(padding=(0, 4))
+    grid.add_column()
+    grid.add_column()
+    grid.add_row(izq, der)
+    return grid
+
+
+def _barra(valor, minimo, maximo, ancho=32, color=tema.C_ACENTO):
+    if maximo == minimo:
+        frac = 0.0
+    else:
+        frac = max(0.0, min(1.0, (valor - minimo) / (maximo - minimo)))
+    llenos = int(round(frac * ancho))
+    barra = Text()
+    barra.append("█" * llenos, style=color)
+    barra.append("░" * (ancho - llenos), style=tema.C_TENUE)
+    return barra
+
+
+def generar_tabla(t, T, T_set, u, error, pid, horno, acciones):
+    # -- lectura instantánea --------------------------------------------
+    estado = Table(box=box.SIMPLE_HEAD, expand=True, pad_edge=False)
+    for col in ("Tiempo (s)", "Temperatura (°C)", "Setpoint (°C)", "u(t)", "Error (°C)"):
+        estado.add_column(col, justify="right")
+    estado.add_row(
+        f"{t:8.1f}",
+        Text(f"{T:8.2f}", style=tema.C_VALOR),
+        f"{T_set:8.2f}",
+        Text(f"{u:8.3f}", style=tema.C_VALOR),
+        Text(f"{error:8.2f}", style=tema.C_AVISO if abs(error) > 1 else tema.C_OK),
+    )
+
+    # -- barras -------------------------------------------------------
+    barras = Table.grid(padding=(0, 2))
+    barras.add_column(justify="right", style=tema.C_TENUE)
+    barras.add_column()
+    barras.add_column(justify="left", style=tema.C_VALOR)
+    t_amb = horno.get("T_amb", 0.0)
+    barras.add_row("T → SET", _barra(T, t_amb, max(T_set, t_amb + 1), color=tema.C_ACENTO), f"{T:.1f} °C")
+    barras.add_row("u(t) [-1, 1]", _barra(u, -1.0, 1.0, color="magenta"), f"{u:+.3f}")
+
+    # -- acciones del PID -------------------------------------------
+    acc = Table(title="Acciones del PID", box=box.MINIMAL, expand=True, title_style=tema.C_TITULO)
+    acc.add_column("Componente", style=tema.C_TENUE)
+    acc.add_column("Valor", justify="right", style=tema.C_VALOR)
+    acc.add_row("Proporcional (P)", f"{acciones.get('P', 0.0):12.3f}")
+    acc.add_row("Integral (I)", f"{acciones.get('I', 0.0):12.3f}")
+    acc.add_row("Derivativa (D)", f"{acciones.get('D', 0.0):12.3f}")
+
+    # -- configuración vigente ------------------------------------
+    cfg = Table(title="Configuración", box=box.MINIMAL, expand=True, title_style=tema.C_TITULO)
+    cfg.add_column("Parámetro", style=tema.C_TENUE)
+    cfg.add_column("Valor", justify="right", style=tema.C_VALOR)
+    cfg.add_row("Kp / Ki / Kd", f"{pid.get('kp', 0):g} / {pid.get('ki', 0):g} / {pid.get('kd', 0):g}")
+    cfg.add_row("Restricción integral", f"{vpid.restringir_integral:g}")
+    cfg.add_row("B (ganancia térmica)", f"{horno.get('B', 0.0):g}")
+    cfg.add_row("τ (constante de tiempo)", f"{horno.get('tau', 0.0):g} s")
+    cfg.add_row("T ambiente", f"{horno.get('T_amb', 0.0):g} °C")
+    cfg.add_row("Δt (paso)", f"{horno.get('dt', 0.1):g} s")
+
+    ayuda = Text("Cierra la ventana del monitor o pulsa Ctrl+C para detener.",
+                 style=tema.C_TENUE, justify="center")
+
+    cuerpo = Group(
+        Align.center(estado),
+        Text(),
+        Align.center(barras),
+        Text(),
+        Align.center(_lado_a_lado(acc, cfg)),
+        Text(),
+        ayuda,
+    )
+
+    return Panel(
+        cuerpo,
+        title="[b]MONITOR DE SIMULACIÓN[/b] · modo consola",
+        subtitle=f"t = {t:.1f} s",
+        box=box.HEAVY,
+        border_style=tema.C_MARCO_ACENTO,
+        padding=(1, 3),
+    )

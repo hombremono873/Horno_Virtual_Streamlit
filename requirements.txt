@@ -1,0 +1,23 @@
+# Dependencias de ejecución del simulador (Python 3.13).
+#
+#   python -m venv .venv
+#   .venv\Scripts\activate
+#   pip install -r requirements.txt
+#
+# Para empaquetar el ejecutable, ver requirements-dev.txt.
+
+# --- Interfaz de consola ---------------------------------------------
+rich==15.0.0
+markdown-it-py==4.2.0        # dependencia de rich
+mdurl==0.1.2                 # dependencia de markdown-it-py
+Pygments==2.20.0             # dependencia de rich
+readchar==4.2.2
+
+# --- Monitor gráfico en tiempo real ----------------------------------
+pyqtgraph==0.14.0
+colorama==0.4.6              # dependencia de pyqtgraph
+numpy==2.1.3
+PySide6==6.11.2
+PySide6_Addons==6.11.2
+PySide6_Essentials==6.11.2
+shiboken6==6.11.2

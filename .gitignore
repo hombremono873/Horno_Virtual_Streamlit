@@ -1,0 +1,75 @@
+# ================================================================
+# Secretos y credenciales (NUNCA versionar)
+# ================================================================
+.env
+.env.*
+!.env.example
+*.env
+secrets.*
+secret.*
+credentials*.json
+*credenciales*
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.keystore
+id_rsa*
+id_ed25519*
+.pypirc
+.netrc
+
+# ================================================================
+# Entornos virtuales
+# ================================================================
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# ================================================================
+# Artefactos de compilación (PyInstaller)
+# ================================================================
+build/
+dist/
+*.spec.bak
+*.manifest
+
+# ================================================================
+# Cachés y artefactos de Python / pruebas
+# ================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ================================================================
+# Registros y temporales
+# ================================================================
+*.log
+*.tmp
+*.bak
+
+# ================================================================
+# Copias de seguridad locales
+# ================================================================
+_backup_pre_refactor_*/
+
+# ================================================================
+# Editor / SO / herramientas locales
+# ================================================================
+.vscode/
+.idea/
+.claude/settings.local.json
+Thumbs.db
+Desktop.ini
+.DS_Store
