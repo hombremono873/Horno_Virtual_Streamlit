@@ -1,0 +1,139 @@
+Contexto
+--------
+Este repositorio es un simulador de horno con control PID en Python. La
+interfaz actual es de escritorio: menú de consola con rich + readchar, y
+monitor gráfico con pyqtgraph + PySide6. Quiero una versión WEB para que los
+estudiantes la usen desde el navegador, sin instalar nada.
+
+Requisito previo: la física realista (B calculado desde T_MAX_EQ, u en [0, 1])
+y el factor de velocidad ya deberían estar implementados. Verifícalo primero;
+si no lo están, detente y avísame.
+
+Antes de escribir código, lee CLAUDE.md, README.md y todo el paquete
+simulador_horno/, y muéstrame un plan por fases. Respeta la arquitectura por
+capas, los nombres en español y el estilo de comentarios existentes.
+
+Tecnologías
+-----------
+- Python 3.13 (la versión actual del proyecto).
+- Streamlit para la interfaz web. Usa una versión reciente que incluya
+  st.fragment con run_every y streamlit.testing (AppTest); verifica la
+  versión instalada en lugar de suponerla.
+- Plotly (plotly.graph_objects y make_subplots) para TODAS las gráficas web.
+  No uses st.line_chart, Altair ni Matplotlib en la interfaz.
+- pandas para construir el CSV de descarga; numpy donde ya se usa.
+- pytest para las pruebas.
+- Despliegue objetivo: Streamlit Community Cloud desde este repositorio de GitHub.
+
+FASE 1 — Encapsular el estado (requisito para la web)
+------------------------------------------------------
+Hoy el estado vive en variables de módulo (config/parametros_horno.py,
+config/parametros_pid.py, historiales) y en atributos de función
+(impulso_probabilistico). En un servidor web eso se compartiría entre TODOS
+los usuarios conectados. Por eso:
+- Crea clases con su propio estado y parámetros, por ejemplo
+  ParametrosHorno/Horno, ParametrosPID/PID, Perturbador e Historial, y un
+  Simulador que las componga. Usa dataclasses donde convenga.
+- El generador aleatorio debe ser por instancia (random.Random o
+  numpy.random.Generator) con semilla opcional, para que las corridas sean
+  reproducibles.
+- La capa de control no debe importar nada de interfaces/. En particular,
+  senal_error.py no debe disparar la alarma sonora: el simulador debe
+  informar el evento ("impulso activo") y que cada interfaz decida cómo
+  mostrarlo.
+- Separa en Simulador la lógica de un paso (sin E/S) del bucle de la interfaz
+  de escritorio.
+- Adapta la versión de consola/escritorio para que use las nuevas clases y
+  siga funcionando igual.
+- Pruebas de no regresión: ANTES de refactorizar, genera con semilla fija una
+  corrida de referencia (sin perturbaciones y con perturbaciones) y guárdala
+  en tests/. Después de refactorizar, las corridas deben coincidir (sin
+  perturbaciones, numéricamente idénticas; con perturbaciones, idénticas con
+  la misma semilla si es posible, o explica por qué no).
+- Prueba que dos instancias de Simulador no se interfieren entre sí.
+
+FASE 2 — Aplicación web con Streamlit + Plotly
+-----------------------------------------------
+Punto de entrada: streamlit_app.py en la raíz del repositorio.
+
+Estado por usuario:
+- Guarda una instancia de Simulador por sesión en st.session_state. Nada de
+  estado global mutable.
+
+Barra lateral (reemplaza el menú de consola):
+- Parámetros del horno: T_AMB, T_SET, TAU, T_MAX_EQ (B se muestra calculado,
+  solo lectura).
+- PID: Kp, Ki, Kd y el parámetro del límite integral.
+- Perturbaciones: activar/desactivar ruido y oscilación, impulsos y su tasa
+  por hora.
+- Velocidad: x1, x10, x60, x600, máxima.
+- Semilla opcional.
+- Botones: Simular, Iniciar/Pausar en vivo, Reiniciar.
+
+Dos modos de ejecución:
+1. "Corrida completa": simula una duración elegida (por ejemplo, de 0,5 a 4
+   horas simuladas) a máxima velocidad y muestra el resultado de una vez.
+   Agrega la opción de superponer la corrida anterior para comparar
+   sintonías.
+2. "En vivo": usa st.fragment con run_every (unas 2 a 4 actualizaciones por
+   segundo); en cada actualización avanza los pasos que corresponden al
+   factor de velocidad y redibuja solo el fragmento del monitor, no toda la
+   página.
+
+Gráficas (Plotly, una figura con subgráficas que comparten el eje x):
+- Temperatura con la línea horizontal del setpoint.
+- Error con la línea en cero.
+- Franja térmica como go.Heatmap con la escala "Plasma", equivalente a la de
+  interfaces/graficas/panel.py.
+- Agrega la señal de control u (0 a 1) como subgráfica o eje secundario.
+- Eje x en tiempo simulado, con unidades legibles (minutos u hh:mm).
+- Crea una plantilla de Plotly a partir de config/tema.py (fondo, panel,
+  texto, rejilla, colores de curva) para conservar la identidad visual.
+- Rendimiento: no envíes más de unos ~2000 puntos por curva; diezma al
+  dibujar si el historial es mayor.
+
+Indicadores:
+- Métricas con st.metric: tiempo simulado, temperatura actual, error, u,
+  sobrepaso máximo, tiempo al 90 % y factor activo.
+- Reemplaza la alarma sonora por un aviso visual (st.toast o banner) cuando
+  ocurre un impulso.
+
+Datos:
+- Botón st.download_button que descargue la corrida en CSV con columnas:
+  t_s, T, T_set, error, u, P, I, D y perturbacion (más T_medida si ya existe
+  en el modelo).
+
+FASE 3 — Dependencias, configuración y documentación
+-----------------------------------------------------
+- Streamlit Community Cloud instala el requirements.txt de la raíz. Hoy ese
+  archivo trae PySide6/pyqtgraph, que son pesados e innecesarios en la web.
+  Separa las dependencias (por ejemplo, requirements.txt para la web y
+  requirements-escritorio.txt para la versión de escritorio) o propón otra
+  estructura equivalente. Ajusta main.spec y el README si cambian las rutas.
+- Agrega .streamlit/config.toml con un tema coherente con config/tema.py.
+- Actualiza el README con: cómo correr la versión web
+  (streamlit run streamlit_app.py), cómo correr la versión de escritorio y
+  los pasos para publicar en Streamlit Community Cloud.
+
+Verificación (obligatoria)
+--------------------------
+- Ejecuta toda la suite de pytest, incluidas las pruebas de no regresión.
+- Agrega pruebas de humo de la app con streamlit.testing.v1.AppTest: la app
+  carga sin errores, el modo "corrida completa" produce la figura y las
+  métricas, y el CSV tiene las columnas esperadas.
+- Prueba que cambiar un parámetro en una sesión no afecte otra sesión.
+- No inicies servidores que se queden corriendo indefinidamente; si levantas
+  Streamlit para comprobarlo, ciérralo al terminar.
+
+Fuera de alcance
+----------------
+Fallas del termopar, tiempo muerto, dinámica del sensor, cambios al
+anti-windup, autenticación de usuarios y bases de datos. Anota en tu resumen
+cualquier mejora que veas.
+
+Entrega
+-------
+Trabaja en una rama nueva, con un commit por fase. Al final dame un resumen
+con: archivos creados y modificados, decisiones de diseño (sobre todo de las
+clases de estado), resultados de las pruebas y pasos pendientes para
+publicar la app.
