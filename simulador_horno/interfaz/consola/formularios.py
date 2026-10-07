@@ -1,14 +1,14 @@
 """Formularios de configuración: PID, horno, perturbaciones y límite integral.
 
-Cada formulario escribe directamente sobre los módulos de ``config`` para que
+Cada formulario escribe directamente sobre los módulos de ``configuracion`` para que
 el cambio surta efecto en la siguiente simulación. ENTER conserva el valor
 actual en cada campo.
 """
 from rich.text import Text
 
-from simulador_horno.config import parametros_horno as horno
-from simulador_horno.config import parametros_pid as pid
-from simulador_horno.interfaces.consola import marco
+from simulador_horno.configuracion import parametros_horno as horno
+from simulador_horno.configuracion import parametros_pid as pid
+from simulador_horno.interfaz.consola import marco
 
 console = marco.console
 

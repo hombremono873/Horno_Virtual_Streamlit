@@ -11,8 +11,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from simulador_horno.config import parametros_pid as vpid
-from simulador_horno.config import tema
+from simulador_horno.configuracion import parametros_pid as vpid
+from simulador_horno.estilos import tema
 
 console = Console()
 

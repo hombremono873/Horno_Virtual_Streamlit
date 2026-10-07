@@ -1,5 +1,5 @@
 """Menú principal del simulador."""
-from simulador_horno.interfaces.consola import marco
+from simulador_horno.interfaz.consola import marco
 
 ITEMS = [
     ("1", "Configurar PID", "Ganancias Kp, Ki, Kd"),

@@ -25,8 +25,9 @@ import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 
-from simulador_horno.config import limites, tema
-from simulador_horno.config import parametros_horno as vhorno
+from simulador_horno.configuracion import limites
+from simulador_horno.estilos import tema
+from simulador_horno.configuracion import parametros_horno as vhorno
 
 _DASH = QtCore.Qt.PenStyle.DashLine
 _DOT = QtCore.Qt.PenStyle.DotLine

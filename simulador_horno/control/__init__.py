@@ -1,7 +1,7 @@
-"""Capa de lógica de control (sin entrada/salida).
+"""El controlador PID (sin entrada/salida).
 
-- ``modelo_termico`` : la planta (evolución de la temperatura del horno).
-- ``controlador``    : el PID (señal de control, anti-windup, escalado).
-- ``actuador``       : traducción de la señal de control a ángulo de conducción.
-- ``perturbaciones`` : ruido, senoide e impulsos sobre la señal de error.
+- ``pid``         : cálculo del PID (``calcular_pid`` puro, ``actualizar_pid`` con estado).
+- ``anti_windup`` : recorte del término integral.
+- ``escalado``    : saturación de la señal de control a [-1, 1].
+- ``senal_error`` : construcción del error de control (setpoint - T + perturbaciones).
 """

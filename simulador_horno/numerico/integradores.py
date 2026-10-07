@@ -1,12 +1,12 @@
 """Variantes de mayor orden del modelo térmico del horno.
 
-Mismo modelo que ``horno.simular_horno`` (Euler), integrado con métodos
+Mismo modelo que ``modelo.horno.simular_horno`` (Euler), integrado con métodos
 más precisos. Se conservan como referencia de métodos numéricos; el
 simulador usa por ahora únicamente Euler.
 """
 import math
 
-from simulador_horno.config import parametros_horno as var
+from simulador_horno.configuracion import parametros_horno as var
 
 
 def simular_horno_heun(T_actual, u):

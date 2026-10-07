@@ -5,11 +5,11 @@
 """
 import math
 
-from simulador_horno.config import limites
-from simulador_horno.config import parametros_horno as var_horno
-from simulador_horno.config import parametros_pid as var
-from simulador_horno.control.controlador import anti_windup as windout
-from simulador_horno.control.controlador.escalado import escalar_u
+from simulador_horno.configuracion import limites
+from simulador_horno.configuracion import parametros_horno as var_horno
+from simulador_horno.configuracion import parametros_pid as var
+from simulador_horno.control import anti_windup as windout
+from simulador_horno.control.escalado import escalar_u
 
 
 def calcular_pid(error, error_prev, integral):

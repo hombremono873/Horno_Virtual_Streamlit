@@ -1,4 +1,4 @@
-"""Interfaces visuales del simulador.
+"""Interfaz de usuario del simulador.
 
 - ``consola``  : interfaz de texto con rich — marco común, bienvenida, menú
                  navegable por teclado, formularios y tabla en vivo.

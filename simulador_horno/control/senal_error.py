@@ -3,15 +3,15 @@
     error = T_SET - T   (+ perturbaciones activadas desde el menú)
 
 Los conmutadores de perturbación viven en la capa de interfaz
-(``interfaces.consola.formularios``); aquí solo se calcula el error.
+(``interfaz.consola.formularios``); aquí solo se calcula el error.
 
 Nota de arquitectura: la alarma sonora del impulso se dispara aquí para
 reproducir el comportamiento original. En una iteración futura conviene
 que sea la capa de simulación quien decida notificar el evento.
 """
-from simulador_horno.config import parametros_horno as vhorno
-from simulador_horno.control.perturbaciones.perturbador import get_ruido, perturbacion_total
-from simulador_horno.interfaces.alarmas import sonora
+from simulador_horno.configuracion import parametros_horno as vhorno
+from simulador_horno.modelo.perturbaciones import get_ruido, perturbacion_total
+from simulador_horno.interfaz.alarmas import sonora
 
 
 def construir_error(t, T):

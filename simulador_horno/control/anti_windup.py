@@ -3,7 +3,7 @@
 Cuando la integral supera ``limites.UMBRAL_INTEGRAL`` se escala por el
 factor ``parametros_pid.restringir_integral`` (configurable en el menú, opción 5).
 """
-from simulador_horno.config import parametros_pid as vpid
+from simulador_horno.configuracion import parametros_pid as vpid
 
 
 def minimizar_integral(integral):

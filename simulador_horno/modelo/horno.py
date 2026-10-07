@@ -3,11 +3,11 @@
     dT/dt = (1 / TAU) * (T_AMB - T) + B * u
 
 Integración por el método de Euler (un paso por iteración de simulación).
-Las variantes Heun y Runge-Kutta 4 viven en ``integradores``.
+Las variantes Heun y Runge-Kutta 4 viven en ``numerico.integradores``.
 """
 import math
 
-from simulador_horno.config import parametros_horno as var
+from simulador_horno.configuracion import parametros_horno as var
 
 
 def simular_horno(T_actual, u):

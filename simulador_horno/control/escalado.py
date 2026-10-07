@@ -1,5 +1,5 @@
 """Saturación de la señal de control del PID."""
-from simulador_horno.config import limites
+from simulador_horno.configuracion import limites
 
 
 def escalar_u(u, u_max=limites.U_MAX):

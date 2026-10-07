@@ -1,4 +1,4 @@
-"""Capa de configuración.
+"""Configuración del simulador.
 
 - ``parametros_horno``      : estado configurable de la planta térmica.
 - ``parametros_pid``        : estado configurable del controlador PID.

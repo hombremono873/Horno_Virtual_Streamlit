@@ -5,7 +5,7 @@ Se añade un ligero suavizado aleatorio para emular la dispersión del disparo.
 """
 import random
 
-from simulador_horno.config import limites
+from simulador_horno.configuracion import limites
 
 
 def suavizar_u(u_real: float, intensidad: float = 0.1) -> float:

@@ -8,15 +8,16 @@ import time
 
 from rich.live import Live
 
-from simulador_horno.config import limites, tema
-from simulador_horno.config import parametros_horno as vhorno
-from simulador_horno.config import parametros_pid as vpid
-from simulador_horno.control.controlador.pid import actualizar_pid
-from simulador_horno.control.modelo_termico.horno import simular_horno
-from simulador_horno.control.perturbaciones.senal_error import construir_error
-from simulador_horno.interfaces.consola import marco
-from simulador_horno.interfaces.consola.tabla_vivo import generar_tabla
-from simulador_horno.interfaces.graficas.panel import PanelGraficas
+from simulador_horno.configuracion import limites
+from simulador_horno.estilos import tema
+from simulador_horno.configuracion import parametros_horno as vhorno
+from simulador_horno.configuracion import parametros_pid as vpid
+from simulador_horno.control.pid import actualizar_pid
+from simulador_horno.modelo.horno import simular_horno
+from simulador_horno.control.senal_error import construir_error
+from simulador_horno.interfaz.consola import marco
+from simulador_horno.interfaz.consola.tabla_vivo import generar_tabla
+from simulador_horno.interfaz.graficas.panel import PanelGraficas
 from simulador_horno.simulacion.historial import Historial
 
 

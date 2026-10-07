@@ -3,8 +3,8 @@
 Las listas viven en ``parametros_horno`` porque las gráficas y la tabla en
 vivo leen de ahí; esta clase solo centraliza el registro y el recorte.
 """
-from simulador_horno.config import limites
-from simulador_horno.config import parametros_horno as vhorno
+from simulador_horno.configuracion import limites
+from simulador_horno.configuracion import parametros_horno as vhorno
 
 
 class Historial:

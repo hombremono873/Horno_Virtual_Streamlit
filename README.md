@@ -88,33 +88,45 @@ pyinstaller main.spec --noconfirm --clean
 simulador/
 ├── main.py                     # punto de entrada (llama a simulador_horno.app.ejecutar)
 ├── main.spec                   # configuración de PyInstaller
-├── requirements.txt
+├── requirements.txt            # dependencias de ejecución
+├── requirements-dev.txt        # PyInstaller (empaquetado)
+├── CLAUDE.md                   # guía técnica del código
 ├── README.md
 ├── dist/  build/               # artefactos de compilación (main.exe)
-└── simulador_horno/            # paquete de la aplicación, organizado por capas
+└── simulador_horno/            # paquete de la aplicación
     ├── app.py                  # bienvenida + bucle del menú (despacho por tabla)
     │
-    ├── config/                 # CONSTANTES Y CONFIGURACIÓN
+    ├── configuracion/          # ¿CON QUÉ PARÁMETROS?
     │   ├── parametros_horno.py      #   valores del horno (editables desde el menú)
     │   ├── parametros_pid.py        #   ganancias y estado del PID
     │   ├── parametros_electricos.py #   ángulo de conducción
-    │   ├── limites.py               #   constantes fijas del simulador
-    │   └── tema.py                  #   paleta y medidas (consola + gráficas)
+    │   └── limites.py               #   constantes fijas del simulador
     │
-    ├── control/                # LÓGICA DE CONTROL (sin entrada/salida)
-    │   ├── modelo_termico/          #   la planta: horno.py (Euler) + integradores.py (Heun, RK4)
-    │   ├── controlador/             #   pid.py + escalado.py + anti_windup.py
-    │   ├── actuador/                #   angulo_conduccion.py
-    │   └── perturbaciones/          #   perturbador.py + senal_error.py
+    ├── modelo/                 # ¿QUÉ SE SIMULA?
+    │   ├── horno.py                 #   ecuación térmica + paso de Euler
+    │   ├── perturbaciones.py        #   ruido, senoide e impulsos
+    │   └── actuador.py              #   ángulo de conducción
     │
-    ├── simulacion/             # ORQUESTACIÓN
+    ├── control/                # ¿QUIÉN CONTROLA?
+    │   ├── pid.py                   #   controlador PID
+    │   ├── anti_windup.py           #   recorte del término integral
+    │   ├── escalado.py              #   saturación de la señal de control
+    │   └── senal_error.py           #   error = setpoint − T (+ perturbaciones)
+    │
+    ├── numerico/               # ¿CON QUÉ MÉTODO NUMÉRICO?
+    │   └── integradores.py          #   Heun (RK2) y Runge-Kutta 4
+    │
+    ├── simulacion/             # ¿QUIÉN COORDINA?
     │   ├── simulador.py             #   clase Simulador (bucle de la corrida)
     │   └── historial.py             #   series temporales de la corrida
     │
-    └── interfaces/             # INTERFACES VISUALES
-        ├── consola/                 #   marco (común) + bienvenida, menu, formularios, tabla_vivo (rich)
-        ├── graficas/                #   panel.py — monitor en tiempo real (pyqtgraph + PySide6)
-        └── alarmas/                 #   sonora.py (beep de impulso)
+    ├── interfaz/               # ¿QUÉ VE EL USUARIO?
+    │   ├── consola/                 #   marco, bienvenida, menú, formularios, tabla en vivo (rich)
+    │   ├── graficas/                #   panel.py — monitor en tiempo real (pyqtgraph + PySide6)
+    │   └── alarmas/                 #   sonora.py (beep de impulso)
+    │
+    └── estilos/                # ¿CÓMO SE VE?
+        └── tema.py                  #   paleta y medidas (consola + gráficas)
 ```
 
 ---

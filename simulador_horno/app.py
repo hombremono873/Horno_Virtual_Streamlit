@@ -1,10 +1,10 @@
 """Aplicación: pantalla de bienvenida y bucle del menú principal.
 
 El menú despacha por tabla (``ACCIONES``) en lugar de una cadena de if/elif.
-La navegación es por teclado directo (ver ``interfaces.consola.marco``).
+La navegación es por teclado directo (ver ``interfaz.consola.marco``).
 """
-from simulador_horno.config import tema
-from simulador_horno.interfaces.consola import bienvenida, formularios, marco, menu
+from simulador_horno.estilos import tema
+from simulador_horno.interfaz.consola import bienvenida, formularios, marco, menu
 from simulador_horno.simulacion.simulador import Simulador
 
 

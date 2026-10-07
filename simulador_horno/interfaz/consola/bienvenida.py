@@ -6,8 +6,8 @@ from rich.align import Align
 from rich.panel import Panel
 from rich.text import Text
 
-from simulador_horno.config import tema
-from simulador_horno.interfaces.consola import marco
+from simulador_horno.estilos import tema
+from simulador_horno.interfaz.consola import marco
 
 
 def mostrar():

@@ -16,7 +16,7 @@ restringir_integral = 0.85
 
 # ----------------------------------------------------------------
 # Estado interno del PID entre iteraciones. Lo actualiza
-# control.controlador.pid.actualizar_pid() en cada paso.
+# control.pid.actualizar_pid() en cada paso.
 # ----------------------------------------------------------------
 error_prev = 0.0
 integral = 0.0
