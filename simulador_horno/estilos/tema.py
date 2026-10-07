@@ -40,6 +40,12 @@ G_CERO = "#585b70"         # línea de error = 0
 
 MAPA_TERMICO = "plasma"    # colormap de la franja térmica evolutiva
 
+# Eje Y centrado en el setpoint: el semirango se calcula con la máxima
+# desviación de los últimos G_VENTANA_ESCALA_MIN minutos simulados.
+G_VENTANA_ESCALA_MIN = 30    # minutos simulados que determinan la escala
+G_SEMIRANGO_MIN = 5.0        # °C; la escala nunca se cierra por debajo de ±5 °C
+G_HOLGURA_ESCALA = 1.15      # 15 % de aire alrededor de la máxima desviación
+
 VENTANA_TITULO = "Monitor del horno — Simulador PID"
 VENTANA_ANCHO = 1280
 VENTANA_ALTO = 820

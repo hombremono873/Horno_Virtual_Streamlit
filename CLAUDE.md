@@ -165,7 +165,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
   - Tiene cuatro vistas: temperatura frente al tiempo con la línea del setpoint, error frente al tiempo, el corte del horno coloreado por T (colorimetría) y la franja histórica de color, más una barra de escala en °C.
   - **El eje de tiempo está en minutos simulados.** La franja lee del historial, igual que las curvas.
   - Las gráficas de tendencia y error **no responden al ratón** (sin zoom, arrastre ni menú). En pyqtgraph un giro de rueda desactiva el ajuste automático y la vista se congela mientras la corrida sigue.
-  - El eje Y de la temperatura se fija en cada refresco con holgura sobre el setpoint, para que la línea de referencia se vea desde el inicio. Los ejes no usan prefijos SI (`enableAutoSIPrefix(False)`).
+  - **El eje Y está centrado en el setpoint** (y el del error en 0) con la misma escala, para que se vea cuánto se aleja la temperatura por arriba o por debajo. El semirango sale de la máxima desviación de los últimos `G_VENTANA_ESCALA_MIN = 30` min simulados (`_semirango`), con `G_HOLGURA_ESCALA` y un mínimo de `G_SEMIRANGO_MIN = ±5 °C` (en `estilos/tema.py`). La escala es amplia durante la subida y se cierra al estabilizarse: así se ve la oscilación amortiguada de ~2,6 °C que en una escala de 0 a 1000 °C sería invisible. Los ejes no usan prefijos SI (`enableAutoSIPrefix(False)`).
   - Las curvas se diezman al dibujar (`setDownsampling(method="peak")`): con 12 h de historial, unas 43 200 muestras, cada refresco tarda ~25 ms.
   - Su API es `actualizar(tiempos, temps, errs, T, T_set)` (tiempos en segundos), `abierta` y `cerrar()`.
   - El modelo es **síncrono**: cada `actualizar` llama a `app.processEvents()`, sin hilos ni `QTimer`.

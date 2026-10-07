@@ -155,6 +155,19 @@ class PanelGraficas:
         """False cuando el usuario ha cerrado la ventana."""
         return self.win.isVisible()
 
+    @staticmethod
+    def _semirango(minutos, temperaturas, errores, T_set):
+        """Máxima desviación reciente (|T - T_set| o |error|), con holgura y un mínimo.
+
+        Se incluye el error porque con perturbaciones activas lleva ruido
+        añadido y puede superar la desviación de la temperatura.
+        """
+        desde = int(np.searchsorted(minutos, minutos[-1] - tema.G_VENTANA_ESCALA_MIN))
+        temps = np.asarray(temperaturas[desde:], dtype=float)
+        errs = np.asarray(errores[desde:], dtype=float)
+        desviacion = float(max(np.max(np.abs(temps - T_set)), np.max(np.abs(errs))))
+        return max(desviacion * tema.G_HOLGURA_ESCALA, tema.G_SEMIRANGO_MIN)
+
     def actualizar(self, tiempos, temperaturas, errores, T, T_set):
         minutos = np.asarray(tiempos, dtype=float) / 60.0
 
@@ -163,13 +176,14 @@ class PanelGraficas:
         self.c_err.setData(minutos, errores)
         self.l_sp.setValue(T_set)
 
-        # eje Y con holgura sobre el setpoint para que la curva no quede
-        # pegada al borde ni debajo de la etiqueta "Setpoint"
+        # eje Y centrado en el setpoint (y el error centrado en 0) con la misma
+        # escala: se ve a simple vista cuánto se aleja la temperatura por
+        # arriba o por debajo. La escala sale de la desviación reciente, así
+        # que se abre durante la subida y se cierra al estabilizarse.
         if len(minutos):
-            bajo = min(vhorno.T_AMB, min(temperaturas))
-            alto = max(T_set, max(temperaturas))
-            margen = 0.12 * (alto - bajo or 1.0)
-            self.p_temp.setYRange(bajo - margen / 3, alto + margen, padding=0)
+            semirango = self._semirango(minutos, temperaturas, errores, T_set)
+            self.p_temp.setYRange(T_set - semirango, T_set + semirango, padding=0)
+            self.p_err.setYRange(-semirango, semirango, padding=0)
 
         # colorimetría de las paredes (paredes a T, cavidad algo más fría)
         t_cavidad = vhorno.T_AMB + 0.8 * (T - vhorno.T_AMB)
