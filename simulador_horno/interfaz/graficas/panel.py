@@ -61,10 +61,11 @@ class PanelGraficas:
         self.p_temp.setTitle("Temperatura del horno — tendencia", size="11pt")
         self.p_temp.showGrid(x=True, y=True, alpha=tema.G_CUADRICULA)
         self.p_temp.setLabel("left", "Temperatura", units="°C")
-        self.p_temp.addLegend(offset=(-10, 10))
+        self.p_temp.addLegend(offset=(-10, -10))   # abajo a la derecha: lejos del setpoint
         self.c_temp = self.p_temp.plot(pen=pg.mkPen(tema.G_TEMP, width=2), name="Temperatura")
         self.l_sp = self.p_temp.addLine(
-            y=0, pen=pg.mkPen(tema.G_SETPOINT, width=1.5, style=_DASH), label="Setpoint"
+            y=0, pen=pg.mkPen(tema.G_SETPOINT, width=1.5, style=_DASH), label="Setpoint",
+            labelOpts={"position": 0.03, "color": tema.G_SETPOINT, "anchors": [(0, 1), (0, 1)]},
         )
 
         # -- Error de control vs. tiempo ----------------------------
@@ -76,6 +77,20 @@ class PanelGraficas:
         self.p_err.setXLink(self.p_temp)
         self.p_err.addLine(y=0, pen=pg.mkPen(tema.G_CERO, width=1, style=_DOT))
         self.c_err = self.p_err.plot(pen=pg.mkPen(tema.G_ERROR, width=2))
+
+        # Vistas fijas: sin zoom ni arrastre con el ratón. En pyqtgraph un
+        # simple giro de rueda desactiva el ajuste automático y la gráfica se
+        # queda congelada mientras la simulación avanza fuera de cuadro.
+        # El historial puede tener decenas de miles de muestras: se diezma
+        # al dibujar (conservando picos) y solo se pinta lo visible.
+        # Sin prefijos SI automáticos: "1000 °C", no "1.0 k°C".
+        for grafica, curva in ((self.p_temp, self.c_temp), (self.p_err, self.c_err)):
+            grafica.getAxis("left").enableAutoSIPrefix(False)
+            grafica.setMouseEnabled(x=False, y=False)
+            grafica.setMenuEnabled(False)
+            grafica.hideButtons()
+            grafica.setClipToView(True)
+            curva.setDownsampling(auto=True, method="peak")
 
         # -- Colorimetría de las paredes del horno ------------------
         self.p_horno = self.win.addPlot(row=0, col=1, rowspan=2)
@@ -147,6 +162,14 @@ class PanelGraficas:
         self.c_temp.setData(minutos, temperaturas)
         self.c_err.setData(minutos, errores)
         self.l_sp.setValue(T_set)
+
+        # eje Y con holgura sobre el setpoint para que la curva no quede
+        # pegada al borde ni debajo de la etiqueta "Setpoint"
+        if len(minutos):
+            bajo = min(vhorno.T_AMB, min(temperaturas))
+            alto = max(T_set, max(temperaturas))
+            margen = 0.12 * (alto - bajo or 1.0)
+            self.p_temp.setYRange(bajo - margen / 3, alto + margen, padding=0)
 
         # colorimetría de las paredes (paredes a T, cavidad algo más fría)
         t_cavidad = vhorno.T_AMB + 0.8 * (T - vhorno.T_AMB)

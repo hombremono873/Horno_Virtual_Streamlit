@@ -22,7 +22,7 @@ VELOCIDADES = {
 # --- Simulación ------------------------------------------------
 REFRESCO_HZ = 4            # refrescos por segundo real de la tabla rich y las gráficas
 INTERVALO_MUESTREO = 1.0   # segundos SIMULADOS entre muestras del historial
-HORAS_HISTORIAL = 5        # horas simuladas que conserva el historial
+HORAS_HISTORIAL = 12       # horas simuladas que conserva el historial (el arranque no se pierde)
 MAX_MUESTRAS = int(HORAS_HISTORIAL * 3600 / INTERVALO_MUESTREO)
 
 # --- Perturbación de impulso (control.senal_error) ----------------

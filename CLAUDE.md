@@ -98,7 +98,7 @@ Este punto es el más importante para entender el código. **No hay objetos de c
 - `configuracion/limites.py`: constantes **fijas** que el menú no edita:
   - control: `U_MAX=20000`, `UMBRAL_INTEGRAL=2000`;
   - velocidad: `VELOCIDADES` (`None` = máxima), `REFRESCO_HZ=4`;
-  - historial: `INTERVALO_MUESTREO=1.0` s simulado y `MAX_MUESTRAS` (5 h);
+  - historial: `INTERVALO_MUESTREO=1.0` s simulado y `MAX_MUESTRAS` (`HORAS_HISTORIAL=12` h);
   - impulso: `TASA_IMPULSOS_HORA=6`, `DURACION_IMPULSO=3` s, `MAGNITUD_IMPULSO=80` °C;
   - colores y actuador: rango de color 30–1200 °C y `THETA_MIN/MAX`.
 - `estilos/tema.py`: paleta y medidas compartidas por la consola (estilos rich `C_*`) y las gráficas (colores hex `G_*`, colormap `plasma`, tamaño de ventana).
@@ -164,6 +164,9 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 - [interfaz/graficas/panel.py](simulador_horno/interfaz/graficas/panel.py): `PanelGraficas` es una única ventana `GraphicsLayoutWidget`.
   - Tiene cuatro vistas: temperatura frente al tiempo con la línea del setpoint, error frente al tiempo, el corte del horno coloreado por T (colorimetría) y la franja histórica de color, más una barra de escala en °C.
   - **El eje de tiempo está en minutos simulados.** La franja lee del historial, igual que las curvas.
+  - Las gráficas de tendencia y error **no responden al ratón** (sin zoom, arrastre ni menú). En pyqtgraph un giro de rueda desactiva el ajuste automático y la vista se congela mientras la corrida sigue.
+  - El eje Y de la temperatura se fija en cada refresco con holgura sobre el setpoint, para que la línea de referencia se vea desde el inicio. Los ejes no usan prefijos SI (`enableAutoSIPrefix(False)`).
+  - Las curvas se diezman al dibujar (`setDownsampling(method="peak")`): con 12 h de historial, unas 43 200 muestras, cada refresco tarda ~25 ms.
   - Su API es `actualizar(tiempos, temps, errs, T, T_set)` (tiempos en segundos), `abierta` y `cerrar()`.
   - El modelo es **síncrono**: cada `actualizar` llama a `app.processEvents()`, sin hilos ni `QTimer`.
 
@@ -200,7 +203,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 5. En el primer paso `error_prev = 0`, lo que produce un *derivative kick* (`KD·error/DT`). Es inofensivo porque u ya satura en 1 al inicio.
 6. `numerico/integradores.py` y `modelo/actuador.py` existen pero no están conectados, así que PyInstaller no los incluye en el exe.
 7. El README menciona la Ley de Fourier, pero el modelo solo tiene pérdidas tipo Newton más la entrada de control.
-8. **Modo "máxima":** simula ~70 h en 3 s reales. Con un historial de 5 h, a los pocos segundos ya no se ve el arranque.
+8. **Modo "máxima":** simula ~70 h en 3 s reales. Con un historial de 12 h, a los pocos segundos ya no se ve el arranque.
 
 ## Archivos fuera del paquete
 
