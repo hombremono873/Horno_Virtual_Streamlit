@@ -17,7 +17,27 @@ El simulador permite analizar de forma numérica y visual el comportamiento din�
 
 Esta es la **versión web**, pensada para usarse desde el navegador sin instalar nada. La versión de escritorio (menú de consola, monitor gráfico y `main.exe`) está en el repositorio [Hornovirtual_2026](https://github.com/hombremono873/Hornovirtual_2026).
 
-> **Estado:** en construcción. El núcleo del simulador ya está listo para la web: cada usuario tiene su propia simulación y las corridas con perturbaciones se pueden repetir con una **semilla**. La interfaz web (Streamlit) es el siguiente paso.
+---
+
+## Inicio rápido
+
+1. Abre la aplicación en el navegador (o ejecútala en tu computador, ver [Instalación](#instalación-y-desarrollo)).
+2. En la barra lateral deja el modo **Corrida completa** y pulsa **▶ Simular**. En un instante aparecen 2 h simuladas.
+3. Observa el monitor: temperatura con el setpoint, error, señal de control u y la franja térmica (el color del horno en cada instante).
+4. Debajo están las **métricas de desempeño** y el botón **⬇ Descargar la corrida (CSV)**.
+5. Cambia **una** cosa (por ejemplo, el anti-windup a *Ninguno*) y vuelve a simular: la corrida anterior queda superpuesta en gris punteado.
+
+## La barra lateral
+
+| Sección | Qué contiene |
+|---|---|
+| **Modo** | *Corrida completa* (toda la duración de una vez) o *En vivo* (se ve avanzar, con ▶ Iniciar / ⏸ Pausar y ↺ Reiniciar) |
+| **Horno** | T ambiente, setpoint, T máx. de equilibrio, **T inicial** (arranque en frío o en caliente) y τ. Muestra **B** calculado |
+| **Controlador PID** | Kp, Ki, Kd, anti-windup (ninguno, recorte, **integración condicional**) y el factor de recorte |
+| **Perturbaciones** | 3 sobre la **medición** y 3 sobre el **horno real** (ver [Modelo y control](#modelo-y-control)) y los impulsos por hora |
+| **Simulación** | Duración (30 min a 8 h; *sin límite* solo en vivo), velocidad (en vivo), método numérico, Δt y **semilla** |
+
+**En vivo** se pueden cambiar el setpoint, las ganancias y las perturbaciones a mitad de la corrida y ver cómo reacciona el controlador. El método numérico, la T inicial y la duración se aplican al **reiniciar**. Cuando ocurre un impulso en la medición aparece un aviso ⚡.
 
 ---
 
@@ -104,22 +124,57 @@ Para IAE e ISE, **menor es mejor**, y solo son comparables entre corridas de la 
 
 ---
 
+## Resultados en archivo
+
+El botón **⬇ Descargar la corrida (CSV)** entrega un archivo estándar (separador `,` y punto decimal) con una fila por segundo simulado:
+
+| Columna | Significado |
+|---|---|
+| `t_s` | tiempo simulado (s) |
+| `T` | temperatura **real** del horno (°C) |
+| `T_set` | setpoint en ese instante (°C) |
+| `error` | el error que vio el controlador, incluidas las perturbaciones de la medición (°C) |
+| `u` | señal de control, de 0 a 1 |
+| `P`, `I`, `D` | aporte de cada término del PID; `P + I + D` es u antes de saturar a [0, 1] |
+| `perturbacion` | lo que las perturbaciones de la medición sumaron al error (°C) |
+| `T_medida` | la temperatura que leyó el controlador, `T_set − error` (°C) |
+
+Para abrirlo en Excel en español: *Datos → Desde texto/CSV* y elige el delimitador **coma**.
+
+---
+
 ## Instalación y desarrollo
+
+Requiere Python 3.13.
 
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
-pip install -r requirements.txt -r requirements-dev.txt
-python -m pytest        # pruebas automáticas (también corren en GitHub Actions en cada push)
+pip install -r requirements.txt                          # la app web
+pip install -r requirements.txt -r requirements-dev.txt  # + pytest
+streamlit run streamlit_app.py                           # abre la app en http://localhost:8501
+python -m pytest                                         # pruebas automáticas (también en GitHub Actions)
 ```
 
-Requiere Python 3.13. El núcleo del simulador solo usa la biblioteca estándar de Python.
+Para detener la app, pulsa `Ctrl+C` en la terminal. La versión de escritorio se ejecuta desde su propio repositorio, [Hornovirtual_2026](https://github.com/hombremono873/Hornovirtual_2026) (`dist\main.exe` o `python main.py`).
+
+## Publicar en Streamlit Community Cloud
+
+1. Sube este repositorio a GitHub (público, o privado con acceso de Streamlit).
+2. Entra a [share.streamlit.io](https://share.streamlit.io) con tu cuenta de GitHub y pulsa **Create app**.
+3. Elige el repositorio, la rama `main` y el archivo principal **`streamlit_app.py`**.
+4. En **Advanced settings** elige **Python 3.13**.
+5. Pulsa **Deploy**. Streamlit instala `requirements.txt` y aplica el tema de `.streamlit/config.toml`. Cada `git push` a `main` actualiza la app.
+
+Cada estudiante que abre el enlace tiene su propia simulación: lo que cambia uno no afecta a los demás.
 
 ## Estructura del proyecto
 
 ```text
 simulador/
-├── requirements*.txt           # dependencias (ejecución / desarrollo)
+├── streamlit_app.py            # punto de entrada de la app web
+├── .streamlit/config.toml      # tema de la app
+├── requirements*.txt           # dependencias (app web / desarrollo)
 ├── CLAUDE.md  README.md        # guía técnica · esta guía
 ├── pytest.ini  tests/          # pruebas automáticas (tests/referencias: corridas de no regresión)
 ├── documentos/                 # traspaso y plan de la versión web
@@ -129,6 +184,7 @@ simulador/
     ├── control/                # ¿quién controla?       PID, anti-windup, saturación, error
     ├── numerico/               # ¿con qué método?       integradores, comparación, estabilidad
     ├── simulacion/             # ¿quién coordina?       Simulador, reloj, historial, métricas, resultados
+    ├── web/                    # ¿qué ve el usuario?    página Streamlit, gráficas Plotly, CSV, modo en vivo
     └── estilos/                # ¿cómo se ve?           paleta de las gráficas
 ```
 

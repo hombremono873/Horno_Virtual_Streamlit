@@ -1,11 +1,17 @@
-# Dependencias de ejecución del simulador (Python 3.13).
+# Dependencias de la versión web (Python 3.13). Streamlit Community Cloud
+# instala este archivo.
 #
 #   python -m venv .venv
 #   .venv\Scripts\activate
 #   pip install -r requirements.txt
+#   streamlit run streamlit_app.py
 #
 # Para las pruebas, ver requirements-dev.txt.
 #
 # El núcleo (modelo, control, numérico y simulación) solo usa la biblioteca
-# estándar. Las dependencias de la interfaz web (Streamlit, Plotly, pandas)
-# se añaden con la aplicación web.
+# estándar; esto es para la interfaz web (simulador_horno/web).
+
+streamlit==1.65.0
+plotly==7.1.0
+pandas==3.0.6
+numpy==2.5.3

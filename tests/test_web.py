@@ -145,3 +145,14 @@ def test_impulsos_nuevos_se_avisan_una_vez():
     sim.avanzar(36_000)
     assert vivo.impulsos_nuevos() == sim.impulsos > 0
     assert vivo.impulsos_nuevos() == 0
+
+
+def test_tema_de_streamlit_coherente_con_el_tema_del_simulador():
+    import tomllib
+    from pathlib import Path
+
+    from simulador_horno.estilos import tema
+    ruta = Path(__file__).resolve().parent.parent / ".streamlit" / "config.toml"
+    t = tomllib.loads(ruta.read_text(encoding="utf-8"))["theme"]
+    assert (t["backgroundColor"], t["secondaryBackgroundColor"], t["textColor"]) == \
+        (tema.G_FONDO, tema.G_PANEL, tema.G_TEXTO)

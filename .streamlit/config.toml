@@ -1,0 +1,15 @@
+# Tema de la app web, coherente con simulador_horno/estilos/tema.py
+# (los mismos colores del monitor de la versión de escritorio).
+
+[theme]
+base = "dark"
+primaryColor = "#89b4fa"             # G_CORRIDAS[0]
+backgroundColor = "#11111b"          # G_FONDO
+secondaryBackgroundColor = "#181825" # G_PANEL
+textColor = "#cdd6f4"                # G_TEXTO
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
