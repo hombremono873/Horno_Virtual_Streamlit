@@ -5,9 +5,14 @@ Streamlit) y se guardan en ``tests/referencias/<escenario>.json``. Cada
 archivo tiene la huella SHA-256 de las series ``(t, T, error, u)`` del
 historial y algunos valores sueltos para diagnosticar si la huella cambia.
 
-- Sin perturbaciones las series deben coincidir BIT A BIT.
-- Con perturbaciones también, siempre que el generador por instancia se
-  siembre igual y consuma los números aleatorios en el mismo orden.
+- Sin perturbaciones las series deben coincidir BIT A BIT en cualquier
+  sistema: es aritmética IEEE pura.
+- Con perturbaciones (semilla fija) también coinciden bit a bit en el
+  sistema donde se generaron (Windows). En otro sistema (Linux, en GitHub
+  Actions) ``sin``, ``exp`` y ``gauss`` salen de otra biblioteca matemática y
+  pueden diferir en el último bit; entonces se exige que los contadores sean
+  idénticos y que los valores y estadísticas de las series coincidan con
+  tolerancia relativa 1e-9.
 
 Solo ``correr`` depende de la API del simulador: al refactorizar se adapta
 esa función y los archivos de referencia NO se tocan.
@@ -70,11 +75,23 @@ def huella(historial):
     return h.hexdigest()
 
 
+TOLERANCIA = 1e-9
+_SERIES = ("tiempos", "temperaturas", "errores", "potencias")
+
+
+def estadisticas(serie):
+    """Suma, suma de valores absolutos, extremos y 20 muestras repartidas."""
+    paso = max(1, len(serie) // 20)
+    return {"suma": sum(serie), "suma_abs": sum(abs(x) for x in serie),
+            "min": min(serie), "max": max(serie), "muestras": serie[::paso][:20]}
+
+
 def resumen(motor):
     h = motor.historial
     m = motor.metricas()
     return {
         "sha256": huella(h),
+        "series": {nombre: estadisticas(getattr(h, nombre)) for nombre in _SERIES},
         "muestras": len(h.tiempos),
         "t_final": motor.t,
         "T_final": motor.T,
@@ -95,8 +112,28 @@ def test_corrida_igual_a_la_referencia(nombre):
         ruta.write_text(json.dumps(obtenido, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         pytest.skip("referencia regenerada")
     esperado = json.loads(ruta.read_text(encoding="utf-8"))
-    # primero lo legible, para que un fallo diga QUÉ cambió
-    for clave in ("muestras", "impulsos", "aperturas", "t_final", "T_final", "u_final", "error_final"):
+    for clave in ("muestras", "impulsos", "aperturas"):   # contadores: siempre exactos
         assert obtenido[clave] == esperado[clave], clave
-    assert obtenido["metricas"] == esperado["metricas"]
-    assert obtenido["sha256"] == esperado["sha256"]
+    semilla = ESCENARIOS[nombre][1]
+    if obtenido["sha256"] == esperado["sha256"] or semilla is None:
+        # bit a bit (sin azar, en cualquier sistema); primero lo legible
+        for clave in ("t_final", "T_final", "u_final", "error_final", "metricas", "series"):
+            assert obtenido[clave] == esperado[clave], clave
+        assert obtenido["sha256"] == esperado["sha256"]
+        return
+    # con perturbaciones en otro sistema: misma corrida salvo el último bit de libm
+    for clave in ("t_final", "T_final", "u_final", "error_final"):
+        assert _cerca(obtenido[clave], esperado[clave]), clave
+    for clave, valor in esperado["metricas"].items():
+        assert _cerca(obtenido["metricas"][clave], valor), clave
+    for nombre_serie in _SERIES:
+        e, o = esperado["series"][nombre_serie], obtenido["series"][nombre_serie]
+        for k in ("suma", "suma_abs", "min", "max"):
+            assert _cerca(o[k], e[k]), (nombre_serie, k)
+        assert all(_cerca(a, b) for a, b in zip(o["muestras"], e["muestras"], strict=True)), nombre_serie
+
+
+def _cerca(obtenido, esperado):
+    if obtenido is None or esperado is None:
+        return obtenido is esperado
+    return obtenido == pytest.approx(esperado, rel=TOLERANCIA, abs=TOLERANCIA)
