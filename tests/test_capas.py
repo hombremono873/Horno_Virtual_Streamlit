@@ -20,6 +20,7 @@ def test_el_nucleo_no_importa_ninguna_interfaz():
         "import simulador_horno.simulacion.simulador, simulador_horno.simulacion.reloj\n"
         "import simulador_horno.simulacion.metricas, simulador_horno.simulacion.resultados\n"
         f"malos = [m for m in {INTERFACES!r} if m in sys.modules]\n"
+        "malos += [m for m in sys.modules if m.startswith('simulador_horno.web')]\n"
         "assert not malos, malos\n"
     )
     resultado = subprocess.run([sys.executable, "-c", codigo], capture_output=True, text=True)
