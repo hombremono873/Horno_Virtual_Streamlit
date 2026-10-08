@@ -1,6 +1,8 @@
 """Textos de los indicadores del monitor (sin Streamlit, para poder probarlos)."""
 from html import escape
 
+from simulador_horno.numerico.integradores import NOMBRES as NOMBRES_METODOS
+
 
 def hhmmss(segundos):
     s = int(round(segundos))
@@ -30,6 +32,31 @@ def indicadores(sim, en_vivo_modo, m):
         ("Sobrepaso", "—" if m is None else f"{m.sobrepaso_pct:.2f} %"),
         ("Tiempo al 90 %", "—" if m is None else minutos(m.t90)),
         ("Factor activo", factor),
+    ]
+
+
+def tablero(sim, en_vivo_modo, m):
+    """Indicadores agrupados para la pestaña de valores: ``[(grupo, [(etiqueta, valor)...])...]``."""
+    base = dict(indicadores(sim, en_vivo_modo, m))
+    h, pid = sim.historial, sim.config.pid
+    P, I, D = (h.proporcionales[-1], h.integrales[-1], h.derivativos[-1]) if len(h) else (0.0, 0.0, 0.0)
+    return [
+        ("Proceso", [(e, base[e]) for e in ("Tiempo simulado", "Temperatura", "Setpoint", "Error", "Control u")]),
+        ("Controlador PID", [
+            ("Aporte P", f"{P:+.3f}"), ("Aporte I", f"{I:+.3f}"), ("Aporte D", f"{D:+.3f}"),
+            ("Ganancias", f"{pid.KP:g} · {pid.KI:g} · {pid.KD:g}"),
+        ]),
+        ("Desempeño", [
+            ("Sobrepaso", base["Sobrepaso"]), ("Tiempo al 90 %", base["Tiempo al 90 %"]),
+            ("Establecimiento ±1 %", "—" if m is None else minutos(m.t_establecimiento)),
+            ("IAE", "—" if m is None else f"{m.iae / 60:,.0f} °C·min"),
+        ]),
+        ("Ejecución", [
+            ("Factor activo", base["Factor activo"]),
+            ("Método", NOMBRES_METODOS[sim.metodo]),
+            ("Δt", f"{sim.config.horno.DT:g} s"),
+            ("Impulsos · aperturas", f"{sim.impulsos} · {sim.aperturas}"),
+        ]),
     ]
 
 

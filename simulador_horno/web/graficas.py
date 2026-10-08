@@ -22,7 +22,7 @@ import plotly.graph_objects as go
 
 from simulador_horno.configuracion import limites
 from simulador_horno.estilos import tema
-from simulador_horno.web.datos import diezmar, indices_diezmados
+from simulador_horno.web.datos import diezmar, indices_diezmados, indices_ventana
 
 ALTO = 640
 _CURVAS = (0.0, 0.70)            # columna de las curvas (fracción del ancho)
@@ -75,9 +75,9 @@ def semirango(minutos, temperaturas, errores, T_set, ventana_min=tema.G_VENTANA_
     return max(desviacion * tema.G_HOLGURA_ESCALA, tema.G_SEMIRANGO_MIN)
 
 
-def instantanea(historial, etiqueta="Corrida anterior"):
+def instantanea(historial, etiqueta="Corrida anterior", idx=None):
     """Copia diezmada de una corrida, para superponerla en la siguiente."""
-    idx = indices_diezmados(len(historial))
+    idx = indices_diezmados(len(historial)) if idx is None else idx
     return {
         "etiqueta": etiqueta,
         "minutos": [t / 60.0 for t in diezmar(historial.tiempos, idx)],
@@ -100,15 +100,23 @@ def _titulo(texto, x, y):
                 showarrow=False, font=dict(size=13, color=tema.G_TEXTO))
 
 
-def figura_monitor(historial, duracion=None, anterior=None, T_amb=None, ventana_min=tema.G_VENTANA_ESCALA_MIN):
+def figura_monitor(historial, duracion=None, anterior=None, T_amb=None,
+                   ventana_min=tema.G_VENTANA_ESCALA_MIN, muestras_visibles=None):
     """Figura del monitor.
 
     ``duracion`` (s) fija el eje x en [0, duración]; ``anterior`` es una
     ``instantanea`` para superponer; ``ventana_min`` son los minutos que
     determinan la escala centrada (None = toda la corrida).
+
+    ``muestras_visibles`` (modo en vivo): solo se dibujan las últimas N
+    muestras y el eje de tiempo abarca N muestras; cuando se llena, la
+    gráfica se corre de derecha a izquierda.
     """
-    actual = instantanea(historial, "Corrida actual")
-    idx = indices_diezmados(len(historial))
+    if muestras_visibles is None:
+        idx = indices_diezmados(len(historial))
+    else:
+        idx = indices_ventana(historial.tiempos, muestras_visibles, historial.intervalo)
+    actual = instantanea(historial, "Corrida actual", idx)
     minutos = actual["minutos"]
     hay_datos = bool(minutos)
     T_set = historial.setpoints[-1] if hay_datos else None
@@ -146,8 +154,15 @@ def figura_monitor(historial, duracion=None, anterior=None, T_amb=None, ventana_
     ))
 
     eje_t = dict(domain=_CURVAS, showticklabels=False)
-    if duracion is not None:
-        eje_t["range"] = [0, duracion / 60.0]
+    fin = None if duracion is None else duracion / 60.0
+    if muestras_visibles is not None:
+        ancho = muestras_visibles * historial.intervalo / 60.0
+        if fin is None or fin > ancho:   # la ventana es más corta que la corrida: se desliza
+            ahora = minutos[-1] if hay_datos else 0.0
+            eje_t["range"] = [max(0.0, ahora - ancho), max(ancho, ahora)]
+            fin = None
+    if fin is not None:
+        eje_t["range"] = [0, fin]
     fig.update_layout(
         template=PLANTILLA, height=ALTO, hovermode="x unified",
         margin=dict(l=64, r=20, t=34, b=44),

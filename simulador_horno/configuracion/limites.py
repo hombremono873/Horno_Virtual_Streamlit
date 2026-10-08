@@ -29,6 +29,10 @@ REFRESCO_HZ = 4            # refrescos por segundo real del modo en vivo
 INTERVALO_MUESTREO = 1.0   # segundos SIMULADOS entre muestras del historial
 HORAS_HISTORIAL = 12       # horas simuladas que conserva el historial (el arranque no se pierde)
 MAX_MUESTRAS = int(HORAS_HISTORIAL * 3600 / INTERVALO_MUESTREO)
+# Ventana deslizante del monitor en vivo: se ven las últimas N muestras;
+# cuando se llena, la más vieja sale por la izquierda y la gráfica "corre".
+# El historial completo (métricas, CSV) no se recorta por esto.
+MUESTRAS_MONITOR = 5000    # ~83 min simulados con una muestra por segundo
 
 # --- Archivos de resultados (simulacion.resultados) --------------
 # Formato pensado para Excel en español (Colombia): separador ";" y coma

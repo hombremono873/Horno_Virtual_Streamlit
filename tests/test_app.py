@@ -39,6 +39,7 @@ def test_la_app_carga_sin_errores():
     at = abrir()
     assert any("Horno virtual" in md.value for md in at.markdown)
     assert valores(at)["Tiempo simulado"] == "0:00:00"
+    assert [t.label for t in at.tabs] == ["📈 Monitor", "🔢 Indicadores"]
     assert at.segmented_control(key="w_modo").value == "En vivo"     # arranca en vivo
     assert at.selectbox(key="w_velocidad").value == "x60"
     assert at.session_state.sim.config.horno.B == pytest.approx((1300 - 30) / 3000)

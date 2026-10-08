@@ -22,6 +22,24 @@ def indices_diezmados(n, maximo=MAX_PUNTOS):
     return indices
 
 
+def indices_ventana(tiempos, muestras, intervalo, maximo=MAX_PUNTOS):
+    """Índices de las últimas ``muestras`` muestras, diezmados de forma ESTABLE.
+
+    Con la ventana deslizándose, elegir "una de cada k" por posición haría
+    que en cada refresco se dibujaran muestras distintas y la curva temblara.
+    Por eso se eligen por su número de muestra absoluto (``t / intervalo``):
+    una muestra que se dibujó se sigue dibujando mientras esté en la ventana.
+    Siempre incluye la última.
+    """
+    n = len(tiempos)
+    inicio = max(0, n - muestras)
+    paso = max(1, math.ceil(muestras / maximo))
+    indices = [i for i in range(inicio, n) if round(tiempos[i] / intervalo) % paso == 0]
+    if n and (not indices or indices[-1] != n - 1):
+        indices.append(n - 1)
+    return indices
+
+
 def diezmar(serie, indices):
     return [serie[i] for i in indices]
 

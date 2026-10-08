@@ -202,3 +202,50 @@ def test_tema_de_streamlit_coherente_con_el_tema_del_simulador():
     t = tomllib.loads(ruta.read_text(encoding="utf-8"))["theme"]
     assert (t["backgroundColor"], t["secondaryBackgroundColor"], t["textColor"]) == \
         (tema.G_FONDO, tema.G_PANEL, tema.G_TEXTO)
+
+
+# ---- ventana deslizante del modo en vivo ---------------------------------
+def test_ventana_deslizante_de_5000_muestras():
+    from simulador_horno.configuracion import limites
+    assert limites.MUESTRAS_MONITOR == 5000
+    sim = Simulador()
+    sim.avanzar(int(30 * 60 / 0.1))                       # 30 min: la ventana aún no se llena
+    fig = graficas.figura_monitor(sim.historial, sim.duracion, muestras_visibles=5000)
+    assert fig.layout.xaxis.range == (0.0, pytest.approx(5000 / 60))
+    sim.avanzar(int(70 * 60 / 0.1))                       # 100 min: la más vieja ya salió
+    fig = graficas.figura_monitor(sim.historial, sim.duracion, muestras_visibles=5000)
+    inicio, fin = fig.layout.xaxis.range
+    assert fin == pytest.approx(100.0, abs=0.05) and fin - inicio == pytest.approx(5000 / 60)
+    temperatura = fig.data[1]
+    assert temperatura.x[0] >= inicio - 0.05 and len(temperatura.x) <= datos.MAX_PUNTOS + 1
+    assert len(sim.historial) == 6000                     # el historial completo no se recorta
+
+
+def test_la_ventana_dibuja_siempre_las_mismas_muestras():
+    """Al deslizarse, una muestra dibujada se sigue dibujando: la curva no tiembla."""
+    sim = Simulador()
+    sim.avanzar(int(100 * 60 / 0.1))
+    h = sim.historial
+    antes = {h.tiempos[i] for i in datos.indices_ventana(h.tiempos, 5000, 1.0)}
+    sim.avanzar(70)                                       # 7 s más
+    despues = {h.tiempos[i] for i in datos.indices_ventana(h.tiempos, 5000, 1.0)}
+    comunes_esperados = {t for t in antes if t >= h.tiempos[-5000]}
+    assert comunes_esperados - {max(antes)} <= despues   # salvo la última, que siempre se incluye
+
+
+def test_en_corrida_completa_se_ve_toda_la_corrida():
+    sim = Simulador()
+    sim.completar()
+    fig = graficas.figura_monitor(sim.historial, sim.duracion)   # sin ventana
+    assert fig.layout.xaxis.range == (0, 120)
+    assert fig.data[1].x[0] == 0.0
+
+
+def test_tablero_agrupado():
+    from simulador_horno.web import indicadores as ind
+    sim = Simulador()
+    sim.completar()
+    grupos = dict(ind.tablero(sim, True, sim.metricas()))
+    assert list(grupos) == ["Proceso", "Controlador PID", "Desempeño", "Ejecución"]
+    assert dict(grupos["Proceso"])["Temperatura"] == "1000.0 °C"
+    assert dict(grupos["Ejecución"])["Método"] == "Euler"

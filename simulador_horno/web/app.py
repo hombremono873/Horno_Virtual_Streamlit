@@ -188,9 +188,10 @@ def _barra_lateral(ss):
 
 
 # ======================================================================
-# Monitor
+# Pestañas: monitor (gráficas) e indicadores (valores)
 # ======================================================================
 def _monitor(ss, modo):
+    """Avanza la corrida (si está en vivo) y actualiza el lienzo."""
     sim = ss.sim
     if ss.en_vivo:
         ss.vivo.refresco()
@@ -199,15 +200,23 @@ def _monitor(ss, modo):
             st.toast(f"Impulso en la medición ({sim.impulsos} en la corrida)", icon="⚡")
     en_vivo_modo = modo == "En vivo"
     anterior = ss.anterior if (not en_vivo_modo and st.session_state.get("w_superponer")) else None
-    # en vivo la escala sigue los últimos minutos; en una corrida completa, toda la corrida
-    ventana = tema.G_VENTANA_ESCALA_MIN if en_vivo_modo else None
-    figura = graficas.figura_monitor(sim.historial, sim.duracion, anterior,
-                                     T_amb=sim.config.horno.T_AMB, ventana_min=ventana)
-    monitor.mostrar(figura, ind.indicadores(sim, en_vivo_modo, sim.metricas()),
-                    ind.estado(sim, ss.en_vivo))
+    # en vivo: ventana deslizante de las últimas MUESTRAS_MONITOR muestras y escala de
+    # los últimos minutos; en una corrida completa, toda la corrida
+    figura = graficas.figura_monitor(
+        sim.historial, sim.duracion, anterior, T_amb=sim.config.horno.T_AMB,
+        ventana_min=tema.G_VENTANA_ESCALA_MIN if en_vivo_modo else None,
+        muestras_visibles=limites.MUESTRAS_MONITOR if en_vivo_modo else None,
+    )
+    monitor.lienzo(figura, [f"⏱ {ind.hhmmss(sim.t)}"] + ind.estado(sim, ss.en_vivo))
     if ss.en_vivo and sim.terminada:
         ss.en_vivo = False
         st.rerun()   # detiene el refresco automático y actualiza los botones
+
+
+def _tablero(ss, modo):
+    """Solo muestra los valores (el monitor es quien avanza la corrida)."""
+    sim = ss.sim
+    monitor.tablero(ind.tablero(sim, modo == "En vivo", sim.metricas()), ind.estado(sim, ss.en_vivo))
 
 
 # ======================================================================
@@ -257,6 +266,16 @@ def main():
     def fragmento_monitor():
         _monitor(ss, modo)
 
-    fragmento_monitor()
-    if not ss.en_vivo:
-        _resultados(ss.sim)
+    @st.fragment(run_every=intervalo)
+    def fragmento_tablero():
+        _tablero(ss, modo)
+
+    # Pestañas normales: cambiar de pestaña no vuelve a ejecutar Python, así
+    # que la corrida en vivo sigue avanzando mientras se mira la otra.
+    pestana_monitor, pestana_valores = st.tabs(["📈 Monitor", "🔢 Indicadores"])
+    with pestana_monitor:
+        fragmento_monitor()
+    with pestana_valores:
+        fragmento_tablero()
+        if not ss.en_vivo:
+            _resultados(ss.sim)

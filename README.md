@@ -25,8 +25,9 @@ Esta es la **versión web**, pensada para usarse desde el navegador sin instalar
 2. La app arranca en modo **En vivo** a **x60** (1 segundo real = 1 minuto simulado). Pulsa **▶ Iniciar** en la barra lateral y mira calentarse el horno.
 3. El monitor es un solo lienzo, como el de un tablero de control: arriba los indicadores; a la izquierda la temperatura (con el setpoint), el error y la potencia u; a la derecha las **paredes del horno**, que se iluminan con su temperatura; abajo la **evolución del color**.
 4. El eje de temperatura está **centrado en el setpoint** (y el del error en 0): durante la subida la escala es amplia y, al estabilizarse, se cierra hasta ±5 °C para que se vea cómo oscila el horno alrededor de la referencia.
-5. Al terminar aparecen las **métricas de desempeño** y el botón **⬇ Descargar la corrida (CSV)**.
-6. Para comparar sintonías usa el modo **Corrida completa** y **▶ Simular**: la corrida se hace en un instante y la anterior queda superpuesta en gris punteado.
+5. Cuando pasan unos 83 min simulados (5000 muestras), la gráfica empieza a **correrse de derecha a izquierda**: entra lo nuevo y sale lo más viejo.
+6. Los valores (temperatura, error, aportes P, I y D, métricas…) están en la pestaña **🔢 Indicadores**; al terminar ahí aparecen el desempeño y el botón **⬇ Descargar la corrida (CSV)**. Cambiar de pestaña no detiene la corrida.
+7. Para comparar sintonías usa el modo **Corrida completa** y **▶ Simular**: la corrida se hace en un instante y la anterior queda superpuesta en gris punteado.
 
 ## La barra lateral
 
