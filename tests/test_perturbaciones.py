@@ -4,9 +4,7 @@ import random
 
 import pytest
 
-from simulador_horno.modelo.perturbaciones import (
-    impulso_probabilistico, probabilidad_por_paso, reiniciar_impulso,
-)
+from simulador_horno.modelo.perturbaciones import Impulso, Perturbador, probabilidad_por_paso
 
 TASA = 360        # alta, para tener muchos eventos y una prueba rápida
 DURACION = 3
@@ -14,11 +12,9 @@ HORAS = 10
 
 
 def contar_impulsos(dt, semilla=2026):
-    random.seed(semilla)
-    reiniciar_impulso()
-    eventos = 0
+    rng, impulso, eventos = random.Random(semilla), Impulso(), 0
     for k in range(int(HORAS * 3600 / dt)):
-        _, _, nuevo = impulso_probabilistico(k * dt, dt, TASA, DURACION, 80)
+        _, _, nuevo = impulso.actualizar(k * dt, dt, TASA, DURACION, 80, rng)
         eventos += nuevo
     return eventos
 
@@ -40,11 +36,10 @@ def test_tasa_no_depende_de_dt():
 
 
 def test_signo_constante_durante_el_impulso_y_alterno_entre_impulsos():
-    random.seed(7)
-    reiniciar_impulso()
+    rng, impulso = random.Random(7), Impulso()
     dt, signos_por_impulso, actual = 0.1, [], None
     for k in range(int(3 * 3600 / dt)):
-        valor, activo, nuevo = impulso_probabilistico(k * dt, dt, TASA, DURACION, 80)
+        valor, activo, nuevo = impulso.actualizar(k * dt, dt, TASA, DURACION, 80, rng)
         if nuevo:
             actual = set()
             signos_por_impulso.append(actual)
@@ -55,3 +50,28 @@ def test_signo_constante_durante_el_impulso_y_alterno_entre_impulsos():
     signos = [next(iter(s)) for s in signos_por_impulso]
     assert signos[0] == -1                                      # el primero es negativo
     assert all(a == -b for a, b in zip(signos, signos[1:]))     # alternan entre impulsos
+
+
+def test_misma_semilla_misma_secuencia_y_semillas_distintas_difieren():
+    def serie(semilla):
+        p = Perturbador(semilla)
+        return [p.perturbacion_total(k * 0.5, 0.5, tasa_hora=TASA)[0] + p.ruido_termopar()
+                for k in range(2000)]
+    assert serie(42) == serie(42)
+    assert serie(42) != serie(43)
+
+
+def test_reiniciar_repite_la_corrida():
+    p = Perturbador(5)
+    primera = [p.ruido_oscilante(k) for k in range(100)]
+    p.reiniciar(5)
+    assert [p.ruido_oscilante(k) for k in range(100)] == primera
+
+
+def test_dos_perturbadores_no_comparten_estado():
+    """El impulso en curso y el generador son de cada instancia."""
+    a, b = Perturbador(1), Perturbador(1)
+    for k in range(5000):          # solo 'a' avanza: con tasa alta tendrá un impulso en curso
+        a.perturbacion_total(k * 0.1, 0.1, tasa_hora=3600)
+    assert b.impulso.activo is False and b.impulso.signo == 1
+    assert b.rng.random() == Perturbador(1).rng.random()

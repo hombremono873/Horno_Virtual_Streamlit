@@ -19,7 +19,6 @@ Regenerar (solo si un cambio de resultados es intencional):
 import hashlib
 import json
 import os
-import random
 from array import array
 from pathlib import Path
 
@@ -60,9 +59,7 @@ def correr(horas, semilla, cambios):
                 break
         else:
             raise KeyError(clave)
-    if semilla is not None:
-        random.seed(semilla)
-    motor = Motor()
+    motor = Motor(semilla=semilla)
     motor.avanzar(round(horas * 3600 / vhorno.DT))
     return motor
 

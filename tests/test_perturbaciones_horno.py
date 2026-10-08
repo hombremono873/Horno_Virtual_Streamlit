@@ -18,10 +18,9 @@ HORAS = 4
 
 def regimen(**perturbaciones):
     """Corre HORAS con las perturbaciones dadas; devuelve (motor, T reales y errores de 2 h a 4 h)."""
-    random.seed(5)
     for atributo, valor in perturbaciones.items():
         setattr(vhorno, atributo, valor)
-    motor = Motor()
+    motor = Motor(semilla=5)
     motor.avanzar(int(HORAS * 3600 / vhorno.DT))
     h = motor.historial
     return motor, h.temperaturas[2 * 3600:], h.errores[2 * 3600:]
@@ -57,10 +56,9 @@ def test_puerta_abierta_hace_caer_la_temperatura_y_el_pid_la_recupera():
 
 def test_tasa_de_aperturas_independiente_de_dt():
     def contar(dt, horas=200):
-        random.seed(9)
-        evento, n = EventoAleatorio(), 0
+        rng, evento, n = random.Random(9), EventoAleatorio(), 0
         for k in range(int(horas * 3600 / dt)):
-            _, nueva = evento.actualizar(k * dt, dt, limites.TASA_PUERTA_HORA, limites.DURACION_PUERTA)
+            _, nueva = evento.actualizar(k * dt, dt, limites.TASA_PUERTA_HORA, limites.DURACION_PUERTA, rng)
             n += nueva
         return n
     gruesa, fina = contar(5.0), contar(1.0)

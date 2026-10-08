@@ -58,10 +58,6 @@ class Perturbaciones:
     red_variable: bool = False      # fluctuación del voltaje de red: potencia ∝ V²
     ambiente_variable: bool = False # temperatura ambiente que oscila lentamente
 
-    @property
-    def sobre_el_horno(self):
-        return self.puerta or self.red_variable or self.ambiente_variable
-
 
 @dataclass
 class ParametrosSimulacion:

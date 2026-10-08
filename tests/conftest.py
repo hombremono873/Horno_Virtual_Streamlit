@@ -11,7 +11,6 @@ import types
 import pytest
 
 from simulador_horno.configuracion import parametros_horno, parametros_pid, parametros_simulacion
-from simulador_horno.modelo.perturbaciones import reiniciar_impulso
 
 _MODULOS = (parametros_horno, parametros_pid, parametros_simulacion)
 
@@ -27,7 +26,6 @@ def _instantanea(modulo):
 @pytest.fixture(autouse=True)
 def configuracion_limpia():
     copias = [(m, _instantanea(m)) for m in _MODULOS]
-    reiniciar_impulso()
     yield
     for modulo, copia in copias:
         for nombre, valor in copia.items():
@@ -36,4 +34,3 @@ def configuracion_limpia():
                 actual[:] = valor
             else:
                 setattr(modulo, nombre, valor)
-    reiniciar_impulso()

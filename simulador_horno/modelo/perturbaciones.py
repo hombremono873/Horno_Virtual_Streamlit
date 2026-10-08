@@ -1,18 +1,27 @@
 """Generación de perturbaciones sobre el sistema.
 
-Incluye ruido aleatorio, una componente senoidal suave y un impulso
-térmico probabilístico de signo alternante.
+Incluye ruido aleatorio, una componente senoidal suave, un impulso térmico
+probabilístico de signo alternante y las perturbaciones físicas del horno
+(puerta, red eléctrica y ambiente).
 
 Todo se expresa en tiempo SIMULADO para que el resultado no dependa del
-paso de integración ``dt``: el impulso se define por una tasa de eventos
-por hora y se convierte a probabilidad por paso con
+paso de integración ``dt``: los eventos se definen por una tasa por hora y
+se convierten a probabilidad por paso con
 
     p = 1 - exp(-tasa * dt)
 
 (probabilidad de al menos un evento de Poisson en un intervalo ``dt``).
+
+Sin estado global: los números aleatorios salen del generador ``rng`` que
+se recibe (``random.Random``) y el estado de los eventos vive en objetos.
+``Perturbador`` reúne ambos para una corrida; con la misma semilla la
+corrida se repite exactamente.
 """
 import math
-from random import gauss, random, uniform
+import random
+
+from simulador_horno.configuracion import limites
+from simulador_horno.modelo.horno import ENTORNO_IDEAL
 
 
 def probabilidad_por_paso(tasa_hora, dt):
@@ -20,66 +29,40 @@ def probabilidad_por_paso(tasa_hora, dt):
     return 1.0 - math.exp(-(tasa_hora / 3600.0) * dt)
 
 
-def reiniciar_impulso():
-    """Olvida cualquier impulso en curso (se llama al empezar cada corrida)."""
-    impulso_probabilistico.activo = False
-    impulso_probabilistico.t_inicio = 0
-    impulso_probabilistico.signo = 1
-
-
-def impulso_probabilistico(t, dt, tasa_hora, duracion, magnitud):
+class Impulso:
     """Impulso que aparece con ``tasa_hora`` eventos/hora y dura ``duracion`` s.
 
     El signo se mantiene durante todo el impulso y se invierte de un
-    impulso al siguiente (el primero es negativo). Devuelve
-    ``(valor, activo, nuevo)``; ``nuevo`` es True solo en el paso en que
-    el impulso comienza.
+    impulso al siguiente (el primero es negativo).
     """
-    if impulso_probabilistico.activo:
-        if t < impulso_probabilistico.t_inicio + duracion:
-            return impulso_probabilistico.signo * abs(magnitud), True, False
-        impulso_probabilistico.activo = False
+
+    def __init__(self):
+        self.reiniciar()
+
+    def reiniciar(self):
+        """Olvida cualquier impulso en curso (al empezar cada corrida)."""
+        self.activo = False
+        self.t_inicio = 0
+        self.signo = 1
+
+    def actualizar(self, t, dt, tasa_hora, duracion, magnitud, rng):
+        """Devuelve ``(valor, activo, nuevo)``; ``nuevo`` es True solo en el
+        paso en que el impulso comienza."""
+        if self.activo:
+            if t < self.t_inicio + duracion:
+                return self.signo * abs(magnitud), True, False
+            self.activo = False
+            return 0, False, False
+
+        if rng.random() < probabilidad_por_paso(tasa_hora, dt):
+            self.activo = True
+            self.t_inicio = t
+            self.signo *= -1
+            return self.signo * abs(magnitud), True, True
+
         return 0, False, False
 
-    if random() < probabilidad_por_paso(tasa_hora, dt):
-        impulso_probabilistico.activo = True
-        impulso_probabilistico.t_inicio = t
-        impulso_probabilistico.signo *= -1
-        return impulso_probabilistico.signo * abs(magnitud), True, True
 
-    return 0, False, False
-
-
-reiniciar_impulso()
-
-
-def impulso_activo():
-    """True mientras dura un impulso."""
-    return impulso_probabilistico.activo
-
-
-def perturbacion_total(t, dt, tasa_hora, duracion, magnitud):
-    """Perturbación total en el instante ``t``: ruido + senoide + impulso.
-
-    Devuelve ``(total, impulso_nuevo)``.
-    """
-    ruido = uniform(-0.5, 1.5)
-    senoide = 20 * math.sin(0.05 * t)
-    impulso, _, nuevo = impulso_probabilistico(t, dt, tasa_hora, duracion, magnitud)
-    total = ruido + senoide + impulso
-    return total, nuevo
-
-
-def get_ruido(t):
-    """Ruido leve: senoide suave + ruido uniforme."""
-    ruido = uniform(-0.5, 1.5)
-    perturbacion = 20 * math.sin(0.05 * t)
-    return perturbacion + ruido
-
-
-# ======================================================================
-# Perturbaciones sobre la MEDICIÓN y sobre el HORNO (física real)
-# ======================================================================
 class EventoAleatorio:
     """Evento que ocurre ``tasa_hora`` veces por hora simulada y dura
     ``duracion`` segundos (con la misma conversión a probabilidad por paso
@@ -92,19 +75,23 @@ class EventoAleatorio:
         self.activo = False
         self.t_inicio = 0.0
 
-    def actualizar(self, t, dt, tasa_hora, duracion):
+    def actualizar(self, t, dt, tasa_hora, duracion, rng):
         """Devuelve ``(activo, nuevo)``."""
         if self.activo:
             if t < self.t_inicio + duracion:
                 return True, False
             self.activo = False
-        if random() < probabilidad_por_paso(tasa_hora, dt):
+        if rng.random() < probabilidad_por_paso(tasa_hora, dt):
             self.activo, self.t_inicio = True, t
             return True, True
         return False, False
 
 
-puerta = EventoAleatorio()
+def ruido_oscilante(t, rng):
+    """Ruido leve sobre la medición: senoide suave + ruido uniforme."""
+    ruido = rng.uniform(-0.5, 1.5)
+    perturbacion = 20 * math.sin(0.05 * t)
+    return perturbacion + ruido
 
 
 def factor_potencia_red(t, amplitudes, periodos):
@@ -120,6 +107,61 @@ def temperatura_ambiente(t, T_amb, amplitud, periodo):
     return T_amb + amplitud * math.sin(2 * math.pi * t / periodo)
 
 
-def ruido_termopar(sigma):
-    """Error de lectura del termopar (°C), gaussiano de media cero."""
-    return gauss(0.0, sigma)
+class Perturbador:
+    """Generador aleatorio y estado de las perturbaciones de UNA corrida.
+
+    ``semilla=None`` toma la semilla del sistema (corridas distintas cada
+    vez); con una semilla entera la corrida es reproducible.
+    """
+
+    def __init__(self, semilla=None):
+        self.impulso = Impulso()
+        self.puerta = EventoAleatorio()
+        self.reiniciar(semilla)
+
+    def reiniciar(self, semilla=None):
+        self.rng = random.Random(semilla)
+        self.impulso.reiniciar()
+        self.puerta.reiniciar()
+        self.ultimo_impulso = 0.0   # perturbación de la última llamada a perturbacion_total
+
+    # ---- sobre la MEDICIÓN ---------------------------------------------
+    def ruido_termopar(self, sigma=limites.RUIDO_TERMOPAR_SIGMA):
+        """Error de lectura del termopar (°C), gaussiano de media cero."""
+        return self.rng.gauss(0.0, sigma)
+
+    def ruido_oscilante(self, t):
+        return ruido_oscilante(t, self.rng)
+
+    def perturbacion_total(self, t, dt, tasa_hora=limites.TASA_IMPULSOS_HORA,
+                           duracion=limites.DURACION_IMPULSO, magnitud=limites.MAGNITUD_IMPULSO):
+        """Ruido + senoide + impulso en el instante ``t``. Devuelve ``(total, impulso_nuevo)``."""
+        ruido = self.rng.uniform(-0.5, 1.5)
+        senoide = 20 * math.sin(0.05 * t)
+        impulso, _, nuevo = self.impulso.actualizar(t, dt, tasa_hora, duracion, magnitud, self.rng)
+        self.ultimo_impulso = ruido + senoide + impulso
+        return self.ultimo_impulso, nuevo
+
+    # ---- sobre el HORNO ------------------------------------------------
+    def entorno(self, t, dt, T_amb, perturbaciones):
+        """Condiciones físicas del paso según las perturbaciones del horno activas.
+
+        Devuelve ``(entorno, apertura_nueva)``; ``entorno`` es
+        ``ENTORNO_IDEAL`` si ninguna está activa.
+        """
+        p = perturbaciones
+        if not (p.puerta or p.red_variable or p.ambiente_variable):
+            return ENTORNO_IDEAL, False
+        T_amb_efectiva, perdida_extra, potencia = None, 0.0, 1.0
+        nueva = False
+        if perturbaciones.ambiente_variable:
+            T_amb_efectiva = temperatura_ambiente(t, T_amb, limites.AMBIENTE_AMPLITUD,
+                                                  limites.AMBIENTE_PERIODO)
+        if perturbaciones.red_variable:
+            potencia = factor_potencia_red(t, limites.RED_AMPLITUDES, limites.RED_PERIODOS)
+        if perturbaciones.puerta:
+            abierta, nueva = self.puerta.actualizar(t, dt, limites.TASA_PUERTA_HORA,
+                                                    limites.DURACION_PUERTA, self.rng)
+            if abierta:
+                perdida_extra = 1.0 / limites.TAU_PUERTA
+        return (T_amb_efectiva, perdida_extra, potencia), nueva

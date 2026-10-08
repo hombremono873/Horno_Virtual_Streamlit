@@ -17,7 +17,7 @@ def corrida(modo, KP=200, KI=10, KD=2):
     for _ in range(int(HORAS * 3600 / vhorno.DT)):
         motor.paso()
         T_max = max(T_max, motor.T)
-        I_max = max(I_max, abs(vpid.integral))
+        I_max = max(I_max, abs(motor.pid.integral))
     salto = vhorno.T_SET - vhorno.T_AMB
     return (T_max - vhorno.T_SET) / salto * 100, vhorno.T_SET - motor.T, I_max
 

@@ -1,40 +1,31 @@
 """Construcción de la señal de error de control.
 
-    error = T_SET - T   (+ perturbaciones activadas desde el menú)
+    error = T_SET - T   (+ perturbaciones de la medición activas)
 
-Los conmutadores de perturbación viven en la capa de interfaz
-(``interfaz.consola.formularios``); aquí solo se calcula el error.
-
-Sin E/S: el comienzo de un impulso se INFORMA al llamador (el motor) y es
-la interfaz quien decide cómo avisarlo (pitido, indicador en la tabla).
+Sin E/S ni estado propio: los conmutadores llegan en ``perturbaciones`` y
+los números aleatorios del ``perturbador`` de la corrida. El comienzo de
+un impulso se INFORMA al llamador (el simulador) y es la interfaz quien
+decide cómo avisarlo.
 """
-from simulador_horno.configuracion import limites
-from simulador_horno.configuracion import parametros_horno as vhorno
-from simulador_horno.modelo.perturbaciones import get_ruido, perturbacion_total, ruido_termopar
 
 
-def construir_error(t, T):
+def construir_error(t, T, T_set, dt, perturbaciones, perturbador):
     """Error base (setpoint - temperatura) más las perturbaciones activas.
 
     Devuelve ``(error, impulso_nuevo)``; ``impulso_nuevo`` es True solo en
     el paso en que comienza un impulso.
     """
-    error = vhorno.T_SET - T
+    error = T_set - T
     impulso_nuevo = False
 
-    if vhorno.ruido_termopar:   # el termopar lee T + ruido -> el error baja en ese ruido
-        error -= ruido_termopar(limites.RUIDO_TERMOPAR_SIGMA)
+    if perturbaciones.ruido_termopar:   # el termopar lee T + ruido -> el error baja en ese ruido
+        error -= perturbador.ruido_termopar()
 
-    if vhorno.error_oscilante:
-        error += get_ruido(t)
+    if perturbaciones.error_oscilante:
+        error += perturbador.ruido_oscilante(t)
 
-    if vhorno.flag_error:
-        vhorno.delta_T, impulso_nuevo = perturbacion_total(
-            t, vhorno.DT,
-            tasa_hora=limites.TASA_IMPULSOS_HORA,
-            duracion=limites.DURACION_IMPULSO,
-            magnitud=limites.MAGNITUD_IMPULSO,
-        )
-        error += vhorno.delta_T
+    if perturbaciones.flag_error:
+        delta, impulso_nuevo = perturbador.perturbacion_total(t, dt)
+        error += delta
 
     return error, impulso_nuevo

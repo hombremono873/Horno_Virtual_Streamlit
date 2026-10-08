@@ -1,6 +1,4 @@
 """Señal de control acotada a [0, 1] y desempeño de la corrida por defecto."""
-import random
-
 import pytest
 
 from simulador_horno.configuracion import parametros_horno as vhorno
@@ -17,9 +15,8 @@ def test_escalar_u_satura_en_0_1(u_bruto, esperado):
 
 @pytest.mark.parametrize("perturbaciones", [False, True])
 def test_u_nunca_sale_de_0_1(perturbaciones, monkeypatch):
-    random.seed(1234)
     vhorno.error_oscilante = vhorno.flag_error = perturbaciones
-    motor = Motor()
+    motor = Motor(semilla=1234)
     u_min, u_max = 1.0, 0.0
     for _ in range(int(HORAS * 3600 / vhorno.DT)):
         u, _ = motor.paso()
