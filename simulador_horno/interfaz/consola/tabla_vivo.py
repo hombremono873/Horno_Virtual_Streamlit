@@ -15,6 +15,7 @@ from rich.text import Text
 from simulador_horno.configuracion import parametros_pid as vpid
 from simulador_horno.control.anti_windup import NOMBRES as NOMBRES_ANTI_WINDUP
 from simulador_horno.estilos import tema
+from simulador_horno.interfaz.consola.metricas import tabla_metricas
 
 console = Console()
 
@@ -47,8 +48,12 @@ def _barra(valor, minimo, maximo, ancho=32, color=tema.C_ACENTO):
 
 
 def generar_tabla(t, T, T_set, u, error, pid, horno, acciones, velocidad, t_real, metodo,
-                  duracion=None, terminada=False):
-    """``duracion``: segundos simulados de la corrida (None = sin límite)."""
+                  duracion=None, terminada=False, metricas=None):
+    """``duracion``: segundos simulados de la corrida (None = sin límite).
+
+    Al terminar, las barras de nivel se sustituyen por la tabla de
+    ``metricas`` de desempeño.
+    """
     # -- reloj: tiempo simulado vs. real ------------------------------
     reloj = Table.grid(padding=(0, 2))
     for _ in range(6):
@@ -120,7 +125,7 @@ def generar_tabla(t, T, T_set, u, error, pid, horno, acciones, velocidad, t_real
         Text(),
         Align.center(estado),
         Text(),
-        Align.center(barras),
+        Align.center(tabla_metricas(metricas) if (terminada and metricas) else barras),
         Text(),
         Align.center(_lado_a_lado(acc, cfg)),
         Text(),

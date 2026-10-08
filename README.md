@@ -223,6 +223,12 @@ Límites teóricos: Euler y Heun son estables con Δt < 2τ; RK4, con Δt < ~2,7
   con el tiempo en minutos simulados.
 - La consola muestra el tiempo simulado (hh:mm:ss), la velocidad activa y el tiempo real.
 - Para detener: cerrar la ventana del monitor **o** pulsar `Ctrl+C` en la consola.
+- **Métricas de desempeño:** al terminar la corrida, la consola muestra
+  sobrepaso (% y °C), tiempo de subida (10→90 %), tiempo al 90 %, tiempo de
+  establecimiento (±1 %), error final e integrales del error IAE e ISE. Se
+  calculan sobre la temperatura real del horno y quedan en pantalla hasta
+  pulsar una tecla; si la corrida se detiene antes, se muestran como
+  "corrida incompleta".
 
 **Pruebas automáticas**
 

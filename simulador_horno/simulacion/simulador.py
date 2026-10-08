@@ -21,9 +21,11 @@ from simulador_horno.configuracion import parametros_pid as vpid
 from simulador_horno.configuracion import parametros_simulacion as vsim
 from simulador_horno.estilos import tema
 from simulador_horno.interfaz.consola import marco
+from simulador_horno.interfaz.consola.metricas import tabla_metricas
 from simulador_horno.interfaz.consola.tabla_vivo import generar_tabla
 from simulador_horno.interfaz.graficas.panel import PanelGraficas
 from simulador_horno.numerico.integradores import NOMBRES as NOMBRES_METODOS
+from simulador_horno.simulacion import metricas
 from simulador_horno.simulacion.motor import Motor
 from simulador_horno.simulacion.reloj import pasos_por_refresco, pasos_restantes
 
@@ -37,6 +39,7 @@ class Simulador:
         self.motor = Motor(max_muestras)
         horas = vsim.duracion_horas
         self.duracion = None if horas is None else horas * 3600.0   # s simulados; fija por corrida
+        self.metricas = None   # se calculan una vez, al terminar o al detener la corrida
         self.panel = None
         self._acumulado = 0.0
         self._inicio_real = None
@@ -95,8 +98,15 @@ class Simulador:
             self._finalizar(interrumpido)
 
     # ---- helpers --------------------------------------------------
+    def _calcular_metricas(self):
+        h = self.motor.historial
+        self.metricas = metricas.calcular(h.tiempos, h.temperaturas, vhorno.T_SET)
+        return self.metricas
+
     def _tabla(self):
         m = self.motor
+        if self.terminada and self.metricas is None:
+            self._calcular_metricas()
         acciones = {"P": vpid.proporcional, "I": vpid.integral, "D": vpid.derivada}
         return generar_tabla(
             m.t, m.T, vhorno.T_SET, m.u, m.error,
@@ -109,6 +119,7 @@ class Simulador:
             metodo=NOMBRES_METODOS[m.metodo],
             duracion=self.duracion,
             terminada=self.terminada,
+            metricas=self.metricas,
         )
 
     @staticmethod
@@ -126,14 +137,22 @@ class Simulador:
         marco.console.clear()
         marco.console.print(f"[{tema.C_AVISO}]Simulación detenida — {motivo}.[/]")
 
+        # las métricas quedan en pantalla hasta pulsar una tecla (si no, el
+        # menú las borraría al volver)
+        resultado = self.metricas or self._calcular_metricas()
+        if resultado is not None:
+            titulo = "Desempeño de la corrida" if self.terminada else "Desempeño (corrida incompleta)"
+            marco.console.print()
+            marco.console.print(tabla_metricas(resultado, titulo))
         if self.panel is not None and self.panel.abierta:
-            marco.console.print(
-                f"[{tema.C_TENUE}]Revisa el monitor; pulsa una tecla para volver al menú.[/]"
-            )
-            try:
-                marco.leer_tecla()
-            except KeyboardInterrupt:
-                pass
+            aviso = "Revisa el monitor; pulsa una tecla para volver al menú."
+        else:
+            aviso = "Pulsa una tecla para volver al menú."
+        marco.console.print(f"[{tema.C_TENUE}]{aviso}[/]")
+        try:
+            marco.leer_tecla()
+        except KeyboardInterrupt:
+            pass
 
         if self.panel is not None:
             self.panel.cerrar()

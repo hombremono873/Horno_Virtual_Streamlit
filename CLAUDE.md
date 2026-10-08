@@ -154,6 +154,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
   - En modo **máxima** ejecuta lotes de `LOTE_MAXIMA` pasos durante todo el periodo y no duerme.
   - **Duración:** `Simulador.duracion` (s simulados, fija por corrida) sale de `vsim.duracion_horas`. `reloj.pasos_restantes(t, duracion, dt)` limita los pasos de cada refresco, también en "máxima", así que la corrida se detiene **exactamente** en la duración. Con `terminada` en True el bucle **sigue refrescando sin avanzar**: el monitor responde, la tabla muestra "CORRIDA TERMINADA" y el eje X del panel abarca `[0, duración]` desde el inicio.
   - Se vuelve al menú al **cerrar la ventana Qt** (`panel.abierta == False`) o con **Ctrl+C**.
+  - **Métricas** ([simulacion/metricas.py](simulador_horno/simulacion/metricas.py), sin E/S): `calcular(tiempos, temperaturas, T_set)` devuelve un `Metricas` calculado sobre la temperatura REAL, no sobre el error, que puede llevar perturbaciones. Incluye sobrepaso en el sentido del salto, de modo que si se arranca por encima del setpoint se mide por debajo; t10, t90, tiempo de subida, establecimiento en ±1 %, error final, e IAE/ISE por trapecio. Los tiempos no alcanzados valen `None`. `Simulador` las calcula una vez, al terminar (`_tabla`) o al detenerse (`_finalizar`). La tabla en vivo las muestra en lugar de las barras de nivel, y `_finalizar` las imprime y **siempre espera una tecla** para que el menú no las borre. Presentación en `interfaz/consola/metricas.py`, con IAE en °C·min.
 - [historial.py](simulador_horno/simulacion/historial.py): `Historial` envuelve las listas de `parametros_horno` (comparte referencia). Guarda **una muestra cada `INTERVALO_MUESTREO` s simulados** y recorta a `MAX_MUESTRAS`, así que el arranque completo se ve a cualquier velocidad.
 - El motor da ~1,3 millones de pasos por segundo real (~0,8 µs por paso). Por eso x600 es holgado y "máxima" simula decenas de horas en pocos segundos.
 
@@ -199,6 +200,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 | `test_estabilidad.py` | factores R teóricos; límites 2τ, 2τ y 2,785τ; el código real amplifica exactamente por R; el comportamiento observado coincide con el veredicto |
 | `test_anti_windup.py` | sin anti-windup hay windup (sobrepaso > 20 %); el condicional llega al setpoint con cualquier sintonía; el recorte deja error con KI bajo; la regla de integración condicional |
 | `test_derivada.py` | sin pico de D en el primer paso; con el setpoint fijo equivale a derivar el error, también con perturbaciones; `medida_prev` se reinicia en cada corrida |
+| `test_metricas.py` | respuesta de primer orden: t10, t90, establecimiento, IAE e ISE coinciden con las fórmulas; sobrepaso; arranque por encima del setpoint; las métricas distinguen los anti-windup |
 | `test_capas.py` | `motor` y `reloj` no importan rich, PySide6 ni pyqtgraph |
 
 ## Cómo añadir cosas
