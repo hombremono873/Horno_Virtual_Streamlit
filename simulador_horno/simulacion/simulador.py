@@ -20,6 +20,7 @@ from simulador_horno.estilos import tema
 from simulador_horno.interfaz.consola import marco
 from simulador_horno.interfaz.consola.tabla_vivo import generar_tabla
 from simulador_horno.interfaz.graficas.panel import PanelGraficas
+from simulador_horno.numerico.integradores import NOMBRES as NOMBRES_METODOS
 from simulador_horno.simulacion.motor import Motor
 from simulador_horno.simulacion.reloj import pasos_por_refresco
 
@@ -84,6 +85,7 @@ class Simulador:
             acciones=acciones,
             velocidad=vsim.velocidad,
             t_real=time.monotonic() - self._inicio_real,
+            metodo=NOMBRES_METODOS[m.metodo],
         )
 
     @staticmethod

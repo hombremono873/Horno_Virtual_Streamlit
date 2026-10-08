@@ -1,12 +1,21 @@
-"""Variantes de mayor orden del modelo térmico del horno.
+"""Métodos numéricos para integrar el modelo térmico del horno.
 
-Mismo modelo que ``modelo.horno.simular_horno`` (Euler), integrado con métodos
-más precisos. Se conservan como referencia de métodos numéricos; el
-simulador usa por ahora únicamente Euler.
+    dT/dt = (1/TAU)·(T_AMB − T) + B·u
+
+Mismo modelo que ``modelo.horno.simular_horno`` (Euler), integrado con
+métodos de mayor orden. El usuario elige el método desde el menú
+(``formularios.configurar_metodo``); ``METODOS`` asocia cada clave con su
+función de paso, todas con la misma firma ``(T_actual, u) -> T_nuevo``.
+
+    Método   Orden   Evaluaciones de dT/dt por paso
+    Euler      1       1
+    Heun       2       2
+    RK4        4       4
 """
 import math
 
 from simulador_horno.configuracion import parametros_horno as var
+from simulador_horno.modelo.horno import simular_horno
 
 
 def simular_horno_heun(T_actual, u):
@@ -66,3 +75,17 @@ def simular_horno_runge(T_actual, u):
         T_nuevo = T_actual
 
     return T_nuevo
+
+
+# Clave (parametros_simulacion.metodo) -> nombre visible y función de paso.
+NOMBRES = {
+    "euler": "Euler",
+    "heun": "Heun (RK2)",
+    "rk4": "Runge-Kutta 4",
+}
+
+METODOS = {
+    "euler": simular_horno,
+    "heun": simular_horno_heun,
+    "rk4": simular_horno_runge,
+}

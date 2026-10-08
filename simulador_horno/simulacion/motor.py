@@ -7,10 +7,11 @@ los resultados: el motor solo sabe de pasos de ``DT`` simulado.
 from simulador_horno.configuracion import limites
 from simulador_horno.configuracion import parametros_horno as vhorno
 from simulador_horno.configuracion import parametros_pid as vpid
+from simulador_horno.configuracion import parametros_simulacion as vsim
 from simulador_horno.control.pid import actualizar_pid
 from simulador_horno.control.senal_error import construir_error
-from simulador_horno.modelo.horno import simular_horno
 from simulador_horno.modelo.perturbaciones import reiniciar_impulso
+from simulador_horno.numerico.integradores import METODOS
 from simulador_horno.simulacion.historial import Historial
 
 
@@ -20,6 +21,8 @@ class Motor:
     def __init__(self, max_muestras=limites.MAX_MUESTRAS, intervalo=limites.INTERVALO_MUESTREO):
         self._reiniciar_estado()
         vhorno.recalcular_B()
+        self.metodo = vsim.metodo
+        self._integrar = METODOS[self.metodo]   # Euler, Heun o RK4, fijo durante la corrida
         self.T = vhorno.T_AMB
         self.t = 0.0
         self.u = 0.0
@@ -40,7 +43,7 @@ class Motor:
     def paso(self):
         error = construir_error(self.t, self.T)
         u = actualizar_pid(error)
-        self.T = simular_horno(self.T, u)
+        self.T = self._integrar(self.T, u)
         self.historial.registrar(self.t, self.T, error)
         self.t += vhorno.DT
         self.u, self.error = u, error

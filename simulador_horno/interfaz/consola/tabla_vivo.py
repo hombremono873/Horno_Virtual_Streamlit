@@ -45,7 +45,7 @@ def _barra(valor, minimo, maximo, ancho=32, color=tema.C_ACENTO):
     return barra
 
 
-def generar_tabla(t, T, T_set, u, error, pid, horno, acciones, velocidad, t_real):
+def generar_tabla(t, T, T_set, u, error, pid, horno, acciones, velocidad, t_real, metodo):
     # -- reloj: tiempo simulado vs. real ------------------------------
     reloj = Table.grid(padding=(0, 2))
     for _ in range(6):
@@ -97,6 +97,7 @@ def generar_tabla(t, T, T_set, u, error, pid, horno, acciones, velocidad, t_real
     cfg.add_row("B (ganancia térmica)", f"{horno.get('B', 0.0):.4f} °C/s")
     cfg.add_row("τ (constante de tiempo)", f"{horno.get('tau', 0.0):g} s")
     cfg.add_row("T ambiente", f"{horno.get('T_amb', 0.0):g} °C")
+    cfg.add_row("Método numérico", metodo)
     cfg.add_row("Δt (paso)", f"{horno.get('dt', 0.1):g} s")
 
     ayuda = Text("Cierra la ventana del monitor o pulsa Ctrl+C para detener.",

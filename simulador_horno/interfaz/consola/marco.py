@@ -28,10 +28,11 @@ from simulador_horno.configuracion import parametros_horno as vhorno
 from simulador_horno.configuracion import parametros_pid as vpid
 from simulador_horno.configuracion import parametros_simulacion as vsim
 from simulador_horno.estilos import tema
+from simulador_horno.numerico.integradores import NOMBRES as NOMBRES_METODOS
 
 console = Console()
 
-ATAJOS_MENU = [("↑ ↓", "moverse"), ("1-8", "acceso directo"), ("Enter", "elegir"), ("Q · Esc", "salir")]
+ATAJOS_MENU = [("↑ ↓", "moverse"), ("1-9", "acceso directo"), ("Enter", "elegir"), ("Q · Esc", "salir")]
 ATAJOS_INFO = [("cualquier tecla", "continuar")]
 
 
@@ -111,6 +112,7 @@ def panel_estado():
     activas = [n for n, on in (("oscilante", vhorno.error_oscilante), ("impulso", vhorno.flag_error)) if on]
     t.add_row("Perturbación", ", ".join(activas) or "ninguna")
     t.add_row("Velocidad", vsim.velocidad)
+    t.add_row("Método numérico", NOMBRES_METODOS.get(vsim.metodo, vsim.metodo))
     return Panel(
         t, title="Estado del sistema", title_align="left",
         box=box.ROUNDED, border_style=tema.C_MARCO, padding=(1, 2),

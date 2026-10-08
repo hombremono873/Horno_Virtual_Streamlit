@@ -48,7 +48,7 @@ simulador_horno/
 │                     #                        parametros_electricos, limites
 ├── modelo/           # ¿qué se simula?        horno (ecuación + Euler), perturbaciones, actuador
 ├── control/          # ¿quién controla?       pid, anti_windup, escalado, senal_error
-├── numerico/         # ¿con qué método?       integradores (Heun, RK4)
+├── numerico/         # ¿con qué método?       integradores (Euler, Heun, RK4 elegibles; tabla METODOS)
 ├── simulacion/       # ¿quién coordina?       motor (lógica), reloj (velocidad), historial, simulador (visual)
 ├── interfaz/         # ¿qué ve el usuario?    consola/, graficas/, alarmas/
 └── estilos/          # ¿cómo se ve?           tema (paleta y medidas)
@@ -67,7 +67,7 @@ main.py  ->  simulador_horno/app.py::ejecutar()
                         ├─► simulacion/Motor.avanzar(N)   y en cada uno de los N pasos:
                         │      ├─► control/senal_error.construir_error(t, T)
                         │      ├─► control/pid.actualizar_pid(error)       -> u ∈ [0, 1]
-                        │      ├─► modelo/horno.simular_horno(T, u)        (Euler)
+                        │      ├─► numerico/integradores.METODOS[metodo](T, u)  (Euler, Heun o RK4)
                         │      └─► simulacion/historial.registrar(...)     (1 muestra / s simulado)
                         ├─► interfaz/consola/tabla_vivo.generar_tabla(...)  (rich.Live)
                         ├─► interfaz/graficas/panel.PanelGraficas.actualizar(...)
@@ -93,7 +93,7 @@ Este punto es el más importante para entender el código. **No hay objetos de c
   - **`B` es derivado:** `recalcular_B()` hace `B = (T_MAX_EQ − T_AMB)/TAU` ≈ 0,423 °C/s. Llámala siempre que cambies `T_AMB`, `TAU` o `T_MAX_EQ` (lo hacen el formulario y el `Motor`).
   - También guarda las listas del historial (`tiempos`, `temperaturas`, `errores`) y los flags de perturbación (`error_oscilante`, `flag_error`, `delta_T`).
 - `configuracion/parametros_pid.py` (alias `var`, `vpid`, `pid`): `KP=200`, `KI=10`, `KD=2`, `restringir_integral=0.85` y el estado interno del PID entre pasos (`error_prev`, `integral`, `derivada`, `proporcional`). `Motor` pone ese estado a cero al iniciar cada corrida.
-- `configuracion/parametros_simulacion.py` (alias `vsim`, `sim`): `velocidad="x60"`, una clave de `limites.VELOCIDADES`.
+- `configuracion/parametros_simulacion.py` (alias `vsim`, `sim`): `velocidad="x60"` (clave de `limites.VELOCIDADES`) y `metodo="euler"` (clave de `numerico.integradores.METODOS`).
 - `configuracion/parametros_electricos.py`: `angulo_conduccion` (no se usa en el bucle).
 - `configuracion/limites.py`: constantes **fijas** que el menú no edita:
   - control: `U_MAX=20000`, `UMBRAL_INTEGRAL=2000`;
@@ -114,7 +114,7 @@ dT/dt = (1/TAU)·(T_AMB − T) + B·u          u ∈ [0, 1],  B = (T_MAX_EQ − 
 T[k+1] = T[k] + DT·dT/dt                    (Euler explícito)
 ```
 
-Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra resultados NaN o infinitos (devuelve `T_actual`). [integradores.py](simulador_horno/numerico/integradores.py) contiene la misma ecuación con Heun (RK2) y RK4 (`simular_horno_heun` y `simular_horno_runge`), pero **no están conectados** al bucle ni al menú.
+Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra resultados NaN o infinitos (devuelve `T_actual`). [integradores.py](simulador_horno/numerico/integradores.py) contiene la misma ecuación con Heun (RK2) y RK4 (`simular_horno_heun` y `simular_horno_runge`). La tabla `METODOS` asocia `"euler"`, `"heun"` y `"rk4"` con su función de paso, todas con firma `(T, u) -> T_nuevo`, y `NOMBRES` guarda el nombre visible. El usuario elige el método en la opción 7 del menú. `Motor` lo fija al crearse (`self.metodo`, `self._integrar`), así que no cambia a mitad de una corrida. `tests/test_integradores.py` comprueba contra la solución exacta que el orden de convergencia observado es 1, 2 y 4.
 
 **Error** ([control/senal_error.py](simulador_horno/control/senal_error.py)): `error = T_SET − T`, más perturbaciones opcionales:
 - `error_oscilante` (opción 3 del menú): `get_ruido(t) = 20·sin(0.05·t) + U(−0.5, 1.5)`.
@@ -149,17 +149,17 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 
 ## Interfaz
 
-- [app.py](simulador_horno/app.py) muestra la bienvenida y luego el bucle de menú, que despacha con el dict `ACCIONES` (`"1"`–`"7"`). `OPCION_SIMULAR = "7"` vuelve sin pausa y `OPCION_SALIR = "8"`.
+- [app.py](simulador_horno/app.py) muestra la bienvenida y luego el bucle de menú, que despacha con el dict `ACCIONES` (`"1"`–`"8"`). `OPCION_SIMULAR = "8"` vuelve sin pausa y `OPCION_SALIR = "9"`.
 - [interfaz/consola/marco.py](simulador_horno/interfaz/consola/marco.py) es el marco común de todas las pantallas (encabezado, migas, pie de atajos) y el único `Console` compartido (`marco.console`). Contiene además:
   - lectura de teclas: `leer_tecla`, que convierte Ctrl+C en `KeyboardInterrupt`;
-  - el menú navegable `menu_interactivo(…, inicial=)` (flechas y Enter, teclas 1-8; Q o Esc devuelven la última opción);
+  - el menú navegable `menu_interactivo(…, inicial=)` (flechas y Enter, teclas 1-9; Q o Esc devuelven la última opción);
   - las ayudas de formulario `pedir_float` (Enter conserva el valor actual), `confirmar` y `resumen`;
   - `panel_estado`, el resumen de la configuración que acompaña al menú, incluida la velocidad.
 - [menu.py](simulador_horno/interfaz/consola/menu.py) define `ITEMS`, la lista de opciones `(clave, etiqueta, descripción)`.
 - [formularios.py](simulador_horno/interfaz/consola/formularios.py) escribe directamente en los módulos de `configuracion/`. Contiene:
   - los conmutadores de perturbación (`_conmutar`);
   - `configurar_horno`, que pide `T_MAX_EQ` (no B), valida que `T_MAX_EQ > T_AMB`, `TAU > 0` y `DT > 0`, y llama a `recalcular_B`;
-  - `configurar_velocidad`, un submenú con `menu_interactivo` cuyo último ítem es "Volver".
+  - `configurar_velocidad` y `configurar_metodo`, submenús con `menu_interactivo` cuyo último ítem es "Volver".
 - [tabla_vivo.py](simulador_horno/interfaz/consola/tabla_vivo.py): `generar_tabla(t, T, T_set, u, error, pid, horno, acciones, velocidad, t_real)` construye el panel de rich. Muestra el reloj (tiempo simulado en hh:mm:ss, velocidad y tiempo real), las lecturas, las barras (u en [0, 1]), los términos P/I/D y la configuración.
 - [interfaz/graficas/panel.py](simulador_horno/interfaz/graficas/panel.py): `PanelGraficas` es una única ventana `GraphicsLayoutWidget`.
   - Tiene cuatro vistas: temperatura frente al tiempo con la línea del setpoint, error frente al tiempo, el corte del horno coloreado por T (colorimetría) y la franja histórica de color, más una barra de escala en °C.
@@ -181,6 +181,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 | `test_velocidad.py` | simulado/real = factor para cada velocidad y varios DT, sin `time.sleep` |
 | `test_historial.py` | conserva ≥ 4 h; una muestra por segundo simulado sea cual sea DT |
 | `test_perturbaciones.py` | la tasa de impulsos no cambia con DT (semilla fija); el signo es constante en el impulso y alterna entre impulsos |
+| `test_integradores.py` | cada método converge a `T_MAX_EQ`; Euler > Heun > RK4 en error; orden observado 1, 2 y 4 frente a la solución exacta; el motor usa el método elegido |
 | `test_capas.py` | `motor` y `reloj` no importan rich, PySide6 ni pyqtgraph |
 
 ## Cómo añadir cosas
@@ -189,7 +190,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 - **Nuevo parámetro editable:** añádelo como variable de módulo en `configuracion/parametros_*.py`, pídelo en el formulario correspondiente, muéstralo en `marco.panel_estado` y en `tabla_vivo`, y añade su módulo a `_MODULOS` en `tests/conftest.py` si es un archivo nuevo.
 - **Constante interna:** `configuracion/limites.py`. **Colores y estilos:** `estilos/tema.py`.
 - **Nueva velocidad:** basta con añadirla a `limites.VELOCIDADES` y a `_DESCRIPCION_VELOCIDAD` en `formularios.py`.
-- **Cambiar de integrador** (Euler por Heun o RK4): sustituye el import de `simular_horno` en `simulacion/motor.py` o hazlo seleccionable desde el menú.
+- **Nuevo método numérico:** escribe la función de paso `(T, u) -> T_nuevo` en `numerico/integradores.py` y añádela a `METODOS`, a `NOMBRES`, a `_DESCRIPCION_METODO` en `formularios.py` y a `ORDEN` en `tests/test_integradores.py`.
 - **Para acelerar, nunca agrandes `DT`:** cambia la velocidad. `DT` es un parámetro numérico.
 - **Nueva dependencia:** fija la versión en `requirements.txt`. Si PyInstaller no la detecta, añádela a `hiddenimports` o `datas` en `main.spec`. Por ejemplo, `readchar` necesita `copy_metadata` y `pyqtgraph` necesita `collect_data_files`.
 - Ejecuta `python -m pytest` antes de cada commit.
@@ -201,7 +202,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 3. El estado del impulso vive en atributos de la función `impulso_probabilistico` (se reinicia con `reiniciar_impulso()`). Debería ser un objeto.
 4. `senal_error.py` (capa de control) importa `interfaz.alarmas.sonora`. Es una violación de capas pendiente: debería notificar la simulación.
 5. En el primer paso `error_prev = 0`, lo que produce un *derivative kick* (`KD·error/DT`). Es inofensivo porque u ya satura en 1 al inicio.
-6. `numerico/integradores.py` y `modelo/actuador.py` existen pero no están conectados, así que PyInstaller no los incluye en el exe.
+6. `modelo/actuador.py` (ángulo de conducción) existe pero no está conectado, así que PyInstaller no lo incluye en el exe.
 7. El README menciona la Ley de Fourier, pero el modelo solo tiene pérdidas tipo Newton más la entrada de control.
 8. **Modo "máxima":** simula ~70 h en 3 s reales. Con un historial de 12 h, a los pocos segundos ya no se ve el arranque.
 

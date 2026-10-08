@@ -19,11 +19,12 @@ ACCIONES = {
     "4": formularios.configurar_error_impulso,
     "5": formularios.acotar_integral,
     "6": formularios.configurar_velocidad,
-    "7": _correr_simulacion,
+    "7": formularios.configurar_metodo,
+    "8": _correr_simulacion,
 }
 
-OPCION_SIMULAR = "7"   # vuelve al menú sin pausa (la simulación ya la pidió)
-OPCION_SALIR = "8"
+OPCION_SIMULAR = "8"   # vuelve al menú sin pausa (la simulación ya la pidió)
+OPCION_SALIR = "9"
 
 
 def ejecutar():

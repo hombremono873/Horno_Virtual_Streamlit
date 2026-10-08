@@ -1,4 +1,5 @@
-"""Formularios de configuración: PID, horno, perturbaciones, límite integral y velocidad.
+"""Formularios de configuración: PID, horno, perturbaciones, límite integral,
+velocidad y método numérico.
 
 Cada formulario escribe directamente sobre los módulos de ``configuracion`` para que
 el cambio surta efecto en la siguiente simulación. ENTER conserva el valor
@@ -11,6 +12,7 @@ from simulador_horno.configuracion import parametros_horno as horno
 from simulador_horno.configuracion import parametros_pid as pid
 from simulador_horno.configuracion import parametros_simulacion as sim
 from simulador_horno.interfaz.consola import marco
+from simulador_horno.numerico.integradores import METODOS, NOMBRES as NOMBRES_METODOS
 
 console = marco.console
 
@@ -160,3 +162,37 @@ def configurar_velocidad():
 
     marco.cabecera_seccion("VELOCIDAD DE SIMULACIÓN", _AYUDA_VELOCIDAD, migas=["Velocidad"])
     marco.resumen("Velocidad", {"activa": sim.velocidad})
+
+
+# ----------------------------------------------------------------------
+# Método numérico (opción 7)
+# ----------------------------------------------------------------------
+_DESCRIPCION_METODO = {
+    "euler": "Orden 1 · 1 evaluación de dT/dt por paso",
+    "heun": "Orden 2 · predictor-corrector, 2 evaluaciones por paso",
+    "rk4": "Orden 4 · 4 evaluaciones por paso, el más preciso",
+}
+
+_AYUDA_METODO = Text.from_markup(
+    "Método con el que se resuelve la ecuación del horno en cada paso Δt:\n\n"
+    "    dT/dt = (T_AMB − T)/τ + B·u\n\n"
+    "Un método de orden p reduce su error ~2^p veces al dividir Δt a la mitad.\n"
+    "Con el Δt por defecto (0,1 s) los tres dan curvas casi idénticas; las\n"
+    "diferencias se aprecian al aumentar Δt en la opción 2."
+)
+
+
+def configurar_metodo():
+    claves = list(METODOS)
+    items = [(str(i), NOMBRES_METODOS[c], _DESCRIPCION_METODO[c]) for i, c in enumerate(claves, 1)]
+    items.append((str(len(items) + 1), "Volver", "Conservar el método actual"))
+    eleccion = marco.menu_interactivo(
+        "MÉTODO NUMÉRICO", items, migas=["Método numérico"],
+        inicial=claves.index(sim.metodo) if sim.metodo in claves else 0,
+    )
+    indice = int(eleccion) - 1
+    if indice < len(claves):
+        sim.metodo = claves[indice]
+
+    marco.cabecera_seccion("MÉTODO NUMÉRICO", _AYUDA_METODO, migas=["Método numérico"])
+    marco.resumen("Método numérico", {"activo": NOMBRES_METODOS[sim.metodo]})

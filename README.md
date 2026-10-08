@@ -74,7 +74,7 @@ pyinstaller main.spec --noconfirm --clean
   El horno se representa como un **sistema de primer orden**, aplicando la **Ley de Fourier** (conducción) y la **Ley de Enfriamiento de Newton** (pérdidas al ambiente):  
   `dT/dt = (T_AMB − T)/τ + B·u`, con `u ∈ [0, 1]` (un horno no enfría activamente).  
   La ganancia `B = (T_MAX_EQ − T_AMB)/τ` se deriva de la temperatura de equilibrio a potencia plena (1300 °C por defecto), lo que da un calentamiento máximo realista de ~0,42 °C/s.  
-  La temperatura se actualiza en cada paso de tiempo mediante el **método de Euler**, lo que permite aproximar la evolución dinámica del sistema.
+  La temperatura se actualiza en cada paso de tiempo con el método numérico elegido en el menú: **Euler** (por defecto), **Heun (RK2)** o **Runge-Kutta 4**, lo que permite comparar su precisión sobre el mismo modelo.
 
 - **Algoritmo PID**  
   El controlador PID ajusta la energía suministrada al horno según:  
@@ -118,7 +118,7 @@ simulador/
     │   └── senal_error.py           #   error = setpoint − T (+ perturbaciones)
     │
     ├── numerico/               # ¿CON QUÉ MÉTODO NUMÉRICO?
-    │   └── integradores.py          #   Heun (RK2) y Runge-Kutta 4
+    │   └── integradores.py          #   Euler, Heun (RK2) y Runge-Kutta 4 (elegibles en el menú)
     │
     ├── simulacion/             # ¿QUIÉN COORDINA?
     │   ├── motor.py                 #   clase Motor: lógica de cada paso, sin E/S
@@ -144,7 +144,7 @@ simulador/
 |-------|--------|
 | `↑` `↓` | Moverse entre opciones |
 | `Enter` | Elegir la opción resaltada |
-| `1`–`8` | Acceso directo a una opción |
+| `1`–`9` | Acceso directo a una opción |
 | `Q` / `Esc` | Salir |
 
 En los formularios, `Enter` sin escribir nada conserva el valor actual (se muestra entre paréntesis).
@@ -159,8 +159,9 @@ En los formularios, `Enter` sin escribir nada conserva el valor actual (se muest
 | `4` Error de impulso | Impulsos térmicos aleatorios (~6 por hora simulada) |
 | `5` Acotar integral | Límite del término integral [0-1] |
 | `6` Velocidad de simulación | x1, x10, x60 (por defecto), x600 o máxima |
-| `7` Ejecutar simulación | Abre el monitor en tiempo real |
-| `8` Salir | Cierra el simulador |
+| `7` Método numérico | Euler (por defecto), Heun (RK2) o Runge-Kutta 4 |
+| `8` Ejecutar simulación | Abre el monitor en tiempo real |
+| `9` Salir | Cierra el simulador |
 
 **Velocidad de simulación (opción 6)**
 
@@ -169,7 +170,22 @@ el tiempo de **ejecución**, no la física: con x60 cada segundo real equivale a
 minuto simulado y la subida completa se ve en poco más de un minuto. El paso de
 integración `Δt` y los resultados son los mismos a cualquier velocidad.
 
-**Simulación (opción 7)**
+**Método numérico (opción 7)**
+
+Elige con qué método se resuelve en cada paso la ecuación del horno,
+`dT/dt = (T_AMB − T)/τ + B·u`:
+
+| Método | Orden | Evaluaciones por paso |
+|--------|-------|-----------------------|
+| Euler | 1 | 1 |
+| Heun (RK2) | 2 | 2 |
+| Runge-Kutta 4 | 4 | 4 |
+
+Un método de orden p reduce su error unas 2^p veces al dividir Δt a la mitad.
+Con el Δt por defecto (0,1 s) las curvas son casi idénticas; para ver la
+diferencia, aumenta Δt en la opción 2 (por ejemplo a 30 s) y compara.
+
+**Simulación (opción 8)**
 
 - Se abre el **monitor**: temperatura, error y franja térmica en una sola ventana,
   con el tiempo en minutos simulados.
