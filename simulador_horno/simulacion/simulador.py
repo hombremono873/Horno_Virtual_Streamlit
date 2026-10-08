@@ -25,7 +25,7 @@ from simulador_horno.interfaz.consola.metricas import tabla_metricas
 from simulador_horno.interfaz.consola.tabla_vivo import generar_tabla
 from simulador_horno.interfaz.graficas.panel import PanelGraficas
 from simulador_horno.numerico.integradores import NOMBRES as NOMBRES_METODOS
-from simulador_horno.simulacion import metricas
+from simulador_horno.simulacion import metricas, resultados
 from simulador_horno.simulacion.motor import Motor
 from simulador_horno.simulacion.reloj import pasos_por_refresco, pasos_restantes
 
@@ -103,6 +103,34 @@ class Simulador:
         self.metricas = metricas.calcular(h.tiempos, h.temperaturas, vhorno.T_SET)
         return self.metricas
 
+    def _parametros_corrida(self):
+        """Configuración de la corrida que se guarda en el CSV."""
+        return {
+            "metodo": self.motor.metodo,
+            "dt": float(vhorno.DT),
+            "anti_windup": vpid.anti_windup,
+            "factor_recorte": float(vpid.restringir_integral) if vpid.anti_windup == "recorte" else None,
+            "KP": vpid.KP, "KI": vpid.KI, "KD": vpid.KD,
+            "T_AMB": vhorno.T_AMB, "T_SET": vhorno.T_SET, "T_MAX_EQ": vhorno.T_MAX_EQ,
+            "TAU": vhorno.TAU, "B": float(vhorno.B),
+            "velocidad": vsim.velocidad,
+            "duracion_h": vsim.duracion_horas,
+            "corrida_completa": "si" if self.terminada else "no",
+            "error_oscilante": "si" if vhorno.error_oscilante else "no",
+            "impulsos": "si" if vhorno.flag_error else "no",
+        }
+
+    def _guardar_resultados(self):
+        """Guarda la corrida en CSV; devuelve la ruta o None (y avisa) si falla."""
+        if len(self.motor.historial.tiempos) < 2:
+            return None
+        try:
+            return resultados.guardar(self.motor.historial, vhorno.T_SET,
+                                      self._parametros_corrida(), self.metricas)
+        except OSError as exc:
+            marco.console.print(f"[{tema.C_ALERTA}]No se pudieron guardar los resultados: {exc}[/]")
+            return None
+
     def _tabla(self):
         m = self.motor
         if self.terminada and self.metricas is None:
@@ -144,6 +172,9 @@ class Simulador:
             titulo = "Desempeño de la corrida" if self.terminada else "Desempeño (corrida incompleta)"
             marco.console.print()
             marco.console.print(tabla_metricas(resultado, titulo))
+        ruta = self._guardar_resultados()
+        if ruta is not None:
+            marco.console.print(f"[{tema.C_OK}]Resultados guardados en:[/] {ruta}")
         if self.panel is not None and self.panel.abierta:
             aviso = "Revisa el monitor; pulsa una tecla para volver al menú."
         else:

@@ -44,8 +44,10 @@ class Motor:
     def paso(self):
         error = construir_error(self.t, self.T)
         u = actualizar_pid(error, vhorno.T_SET - error)   # medida = lo que "lee" el controlador
+        # se registra ANTES de integrar: cada muestra es coherente en el
+        # instante t (T(t), el error visto en t y la u decidida en t)
+        self.historial.registrar(self.t, self.T, error, u)
         self.T = self._integrar(self.T, u)
-        self.historial.registrar(self.t, self.T, error)
         self.t += vhorno.DT
         self.u, self.error = u, error
         return u, error

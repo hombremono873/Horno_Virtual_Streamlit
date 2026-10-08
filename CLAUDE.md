@@ -93,7 +93,7 @@ Este punto es el más importante para entender el código. **No hay objetos de c
 - `configuracion/parametros_horno.py` (alias habitual `var`, `vhorno`, `horno`):
   - `T_AMB=30`, `T_SET=1000`, `T_MAX_EQ=1300` (equilibrio con u = 1), `TAU=3000` y `DT=0.1`.
   - **`B` es derivado:** `recalcular_B()` hace `B = (T_MAX_EQ − T_AMB)/TAU` ≈ 0,423 °C/s. Llámala siempre que cambies `T_AMB`, `TAU` o `T_MAX_EQ` (lo hacen el formulario y el `Motor`).
-  - También guarda las listas del historial (`tiempos`, `temperaturas`, `errores`) y los flags de perturbación (`error_oscilante`, `flag_error`, `delta_T`).
+  - También guarda las listas del historial (`tiempos`, `temperaturas`, `errores`, `potencias`) y los flags de perturbación (`error_oscilante`, `flag_error`, `delta_T`).
 - `configuracion/parametros_pid.py` (alias `var`, `vpid`, `pid`): `KP=200`, `KI=10`, `KD=2`, `anti_windup="condicional"`, `restringir_integral=0.85` (factor del modo "recorte") y el estado interno del PID entre pasos (`error_prev`, `integral`, `derivada`, `proporcional`). `Motor` pone ese estado a cero al iniciar cada corrida.
 - `configuracion/parametros_simulacion.py` (alias `vsim`, `sim`): `velocidad="x60"` (clave de `limites.VELOCIDADES`), `duracion_horas=2` (de `limites.DURACIONES_HORAS`; `None` = sin límite) y `metodo="euler"` (clave de `numerico.integradores.METODOS`).
 - `configuracion/parametros_electricos.py`: `angulo_conduccion` (no se usa en el bucle).
@@ -101,6 +101,7 @@ Este punto es el más importante para entender el código. **No hay objetos de c
   - control: `U_MAX=20000`, `UMBRAL_INTEGRAL=2000` (tope del modo "recorte");
   - velocidad y duración: `VELOCIDADES` (`None` = máxima), `DURACIONES_HORAS = (0.5, 1, 2, 4, 8, None)` y `REFRESCO_HZ=4`;
   - historial: `INTERVALO_MUESTREO=1.0` s simulado y `MAX_MUESTRAS` (`HORAS_HISTORIAL=12` h);
+  - archivos: `CARPETA_RESULTADOS="resultados"`, `CSV_SEPARADOR=";"` y `CSV_DECIMAL=","` (Excel en español);
   - impulso: `TASA_IMPULSOS_HORA=6`, `DURACION_IMPULSO=3` s, `MAGNITUD_IMPULSO=80` °C;
   - colores y actuador: rango de color 30–1200 °C y `THETA_MIN/MAX`.
 - `estilos/tema.py`: paleta y medidas compartidas por la consola (estilos rich `C_*`) y las gráficas (colores hex `G_*`, colormap `plasma`, tamaño de ventana).
@@ -146,7 +147,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 
 - [simulacion/motor.py](simulador_horno/simulacion/motor.py), clase `Motor`: la lógica pura de la corrida.
   - `__init__` reinicia el estado del PID y del impulso, recalcula B y limpia el historial.
-  - `paso()` calcula el error, aplica el PID, avanza la planta, registra en el historial y suma `DT` a `t`.
+  - `paso()` calcula el error y aplica el PID, **registra** la muestra `(t, T, error, u)` y luego avanza la planta y suma `DT` a `t`. Registrar antes de integrar hace que cada muestra sea coherente en el instante t.
   - `avanzar(n)` ejecuta n pasos. Guarda `T`, `t`, `u` y `error`.
 - [simulacion/reloj.py](simulador_horno/simulacion/reloj.py): `pasos_por_refresco(factor, dt, hz, acumulado)` devuelve `N = factor/(hz·dt)`. Acumula la fracción sobrante para que x1 (2,5 pasos por refresco) también sea exacto.
 - [simulacion/simulador.py](simulador_horno/simulacion/simulador.py), clase `Simulador`: el bucle visual.
@@ -155,7 +156,8 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
   - **Duración:** `Simulador.duracion` (s simulados, fija por corrida) sale de `vsim.duracion_horas`. `reloj.pasos_restantes(t, duracion, dt)` limita los pasos de cada refresco, también en "máxima", así que la corrida se detiene **exactamente** en la duración. Con `terminada` en True el bucle **sigue refrescando sin avanzar**: el monitor responde, la tabla muestra "CORRIDA TERMINADA" y el eje X del panel abarca `[0, duración]` desde el inicio.
   - Se vuelve al menú al **cerrar la ventana Qt** (`panel.abierta == False`) o con **Ctrl+C**.
   - **Métricas** ([simulacion/metricas.py](simulador_horno/simulacion/metricas.py), sin E/S): `calcular(tiempos, temperaturas, T_set)` devuelve un `Metricas` calculado sobre la temperatura REAL, no sobre el error, que puede llevar perturbaciones. Incluye sobrepaso en el sentido del salto, de modo que si se arranca por encima del setpoint se mide por debajo; t10, t90, tiempo de subida, establecimiento en ±1 %, error final, e IAE/ISE por trapecio. Los tiempos no alcanzados valen `None`. `Simulador` las calcula una vez, al terminar (`_tabla`) o al detenerse (`_finalizar`). La tabla en vivo las muestra en lugar de las barras de nivel, y `_finalizar` las imprime y **siempre espera una tecla** para que el menú no las borre. Presentación en `interfaz/consola/metricas.py`, con IAE en °C·min.
-- [historial.py](simulador_horno/simulacion/historial.py): `Historial` envuelve las listas de `parametros_horno` (comparte referencia). Guarda **una muestra cada `INTERVALO_MUESTREO` s simulados** y recorta a `MAX_MUESTRAS`, así que el arranque completo se ve a cualquier velocidad.
+- [historial.py](simulador_horno/simulacion/historial.py): `Historial` envuelve las listas de `parametros_horno` (comparte referencia). Guarda **una muestra cada `INTERVALO_MUESTREO` s simulados** y recorta a `MAX_MUESTRAS`, así que el arranque completo se ve a cualquier velocidad. Registra también la potencia `u` (`potencias`).
+- [resultados.py](simulador_horno/simulacion/resultados.py): `guardar(historial, T_set, parametros, metricas)` escribe **un CSV por corrida** en `carpeta_resultados()`, que está junto al exe si está empaquetado (`sys.frozen`) o en el CWD. Usa UTF-8 con BOM, `;` y coma decimal; primero las líneas `# clave;valor` con la configuración y las métricas (`metrica_*`), después las columnas `t_s;T_C;T_set_C;error_C;u`. `leer(ruta)` devuelve `(parametros, series)` y será la base del dashboard. `Simulador._finalizar` guarda al salir y muestra la ruta; un `OSError` solo se avisa. La carpeta `resultados/` está en `.gitignore`.
 - El motor da ~1,3 millones de pasos por segundo real (~0,8 µs por paso). Por eso x600 es holgado y "máxima" simula decenas de horas en pocos segundos.
 
 ## Interfaz
@@ -201,7 +203,8 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 | `test_anti_windup.py` | sin anti-windup hay windup (sobrepaso > 20 %); el condicional llega al setpoint con cualquier sintonía; el recorte deja error con KI bajo; la regla de integración condicional |
 | `test_derivada.py` | sin pico de D en el primer paso; con el setpoint fijo equivale a derivar el error, también con perturbaciones; `medida_prev` se reinicia en cada corrida |
 | `test_metricas.py` | respuesta de primer orden: t10, t90, establecimiento, IAE e ISE coinciden con las fórmulas; sobrepaso; arranque por encima del setpoint; las métricas distinguen los anti-windup |
-| `test_capas.py` | `motor` y `reloj` no importan rich, PySide6 ni pyqtgraph |
+| `test_resultados.py` | ida y vuelta del CSV; formato para Excel (BOM, `;`, coma decimal); el historial registra u; el simulador guarda y no se rompe si la carpeta falla |
+| `test_capas.py` | `motor`, `reloj`, `metricas` y `resultados` no importan rich, PySide6 ni pyqtgraph |
 
 ## Cómo añadir cosas
 

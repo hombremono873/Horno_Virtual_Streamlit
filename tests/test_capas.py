@@ -5,7 +5,7 @@ import sys
 
 def test_motor_no_importa_rich_ni_qt():
     codigo = (
-        "import sys; import simulador_horno.simulacion.motor, simulador_horno.simulacion.reloj; "
+        "import sys; import simulador_horno.simulacion.motor, simulador_horno.simulacion.reloj, simulador_horno.simulacion.metricas, simulador_horno.simulacion.resultados; "
         "malos = [m for m in ('rich', 'PySide6', 'pyqtgraph') if m in sys.modules]; "
         "assert not malos, malos"
     )

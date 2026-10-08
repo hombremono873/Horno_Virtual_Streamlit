@@ -30,6 +30,13 @@ INTERVALO_MUESTREO = 1.0   # segundos SIMULADOS entre muestras del historial
 HORAS_HISTORIAL = 12       # horas simuladas que conserva el historial (el arranque no se pierde)
 MAX_MUESTRAS = int(HORAS_HISTORIAL * 3600 / INTERVALO_MUESTREO)
 
+# --- Archivos de resultados (simulacion.resultados) --------------
+# Formato pensado para Excel en español (Colombia): separador ";" y coma
+# decimal; con "," y "." Excel abriría todo en una sola columna.
+CARPETA_RESULTADOS = "resultados"
+CSV_SEPARADOR = ";"
+CSV_DECIMAL = ","
+
 # --- Perturbación de impulso (control.senal_error) ----------------
 # Tasa expresada por hora SIMULADA para que no dependa de DT. Con ~6/h
 # una corrida típica (~75 min) recibe unos 7 impulsos: visibles sin

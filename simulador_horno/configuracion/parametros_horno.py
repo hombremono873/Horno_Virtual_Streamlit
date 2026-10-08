@@ -31,6 +31,7 @@ B = recalcular_B()  # Ganancia térmica (°C/s por unidad de control); se deriva
 tiempos = []
 temperaturas = []
 errores = []
+potencias = []      # señal de control u en [0, 1]
 
 # ----------------------------------------------------------------
 # Estado de las perturbaciones (lo conmutan los formularios del menú)

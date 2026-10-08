@@ -17,27 +17,30 @@ class Historial:
         self.tiempos = vhorno.tiempos
         self.temperaturas = vhorno.temperaturas
         self.errores = vhorno.errores
+        self.potencias = vhorno.potencias
         self._proxima = 0.0
 
-    def registrar(self, t, T, error):
+    def _series(self):
+        return (self.tiempos, self.temperaturas, self.errores, self.potencias)
+
+    def registrar(self, t, T, error, u=0.0):
         """Guarda la muestra solo si ya pasó ``intervalo`` desde la anterior."""
         if t + 1e-9 < self._proxima:
             return
         self.tiempos.append(t)
         self.temperaturas.append(T)
         self.errores.append(error)
+        self.potencias.append(u)
         self._proxima += self.intervalo
         self._recortar()
 
     def _recortar(self):
         exceso = len(self.tiempos) - self.max_muestras
         if exceso > 0:
-            del self.tiempos[:exceso]
-            del self.temperaturas[:exceso]
-            del self.errores[:exceso]
+            for serie in self._series():
+                del serie[:exceso]
 
     def limpiar(self):
-        self.tiempos.clear()
-        self.temperaturas.clear()
-        self.errores.clear()
+        for serie in self._series():
+            serie.clear()
         self._proxima = 0.0

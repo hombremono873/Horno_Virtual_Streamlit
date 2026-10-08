@@ -229,6 +229,14 @@ Límites teóricos: Euler y Heun son estables con Δt < 2τ; RK4, con Δt < ~2,7
   calculan sobre la temperatura real del horno y quedan en pantalla hasta
   pulsar una tecla; si la corrida se detiene antes, se muestran como
   "corrida incompleta".
+- **Resultados en archivo:** cada corrida se guarda automáticamente en la
+  carpeta `resultados/` (junto a `main.exe`, o en `simulador/` si se ejecuta
+  desde el código), con un nombre como
+  `2026-10-08_143015_rk4_dt0,1_condicional.csv` (fecha, método, Δt y
+  anti-windup). Se abre directamente en Excel: usa `;` como separador y coma
+  decimal. Las primeras líneas (`#`) guardan la configuración y las métricas;
+  después hay una fila por segundo simulado con `t_s`, `T_C` (temperatura
+  real), `T_set_C`, `error_C` (error que vio el controlador) y `u`.
 
 **Pruebas automáticas**
 
