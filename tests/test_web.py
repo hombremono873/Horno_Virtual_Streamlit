@@ -62,18 +62,64 @@ def test_nombre_del_csv(corrida):
 
 
 # ---- gráficas ----------------------------------------------------------
-def test_figura_con_subgraficas_y_pocos_puntos():
+def test_figura_en_un_solo_lienzo_y_pocos_puntos():
     sim = Simulador(Configuracion(simulacion=ParametrosSimulacion(duracion_horas=8)))
     sim.completar()                                       # 28 800 muestras
-    fig = graficas.figura_monitor(sim.historial, sim.duracion)
+    fig = graficas.figura_monitor(sim.historial, sim.duracion, T_amb=30.0)
     nombres = [t.name for t in fig.data]
-    assert nombres == ["Setpoint", "Temperatura", "Error", "u", "Franja térmica"]
-    for traza in fig.data:
+    assert nombres == ["Setpoint", "Temperatura", "Error", "u", "Franja térmica", "Paredes del horno"]
+    for traza in fig.data[:5]:
         assert len(traza.x) <= datos.MAX_PUNTOS + 1
-    franja = fig.data[-1]
-    assert franja.type == "heatmap" and franja.colorscale[0][1] == "#0d0887"   # Plasma
-    assert fig.layout.xaxis4.range == (0, 480)            # eje x en minutos, de 0 a la duración
+    franja, horno = fig.data[4], fig.data[5]
+    assert franja.type == horno.type == "heatmap" and franja.colorscale[0][1] == "#0d0887"   # Plasma
+    assert fig.layout.xaxis.range == (0, 480)            # eje x en minutos, de 0 a la duración
+    assert fig.layout.xaxis2.matches == fig.layout.xaxis3.matches == "x"   # tiempo compartido
     assert fig.layout.template.layout.paper_bgcolor.lower() == "#11111b"
+    assert "1000 °C" in fig.layout.annotations[-1].text  # lectura en el dibujo del horno
+
+
+def test_eje_centrado_en_el_setpoint():
+    """Temperatura centrada en el setpoint y error en 0, con el mismo semirango."""
+    sim = Simulador()
+    sim.avanzar(int(20 * 60 / 0.1))                      # subida: escala abierta
+    fig = graficas.figura_monitor(sim.historial, sim.duracion)
+    bajo, alto = fig.layout.yaxis.range
+    assert (bajo + alto) / 2 == pytest.approx(1000.0) and alto - bajo > 1000
+    assert fig.layout.yaxis2.range == (bajo - 1000.0, alto - 1000.0)
+    sim.avanzar(int(100 * 60 / 0.1))                     # régimen: escala cerrada
+    fig = graficas.figura_monitor(sim.historial, sim.duracion)
+    bajo, alto = fig.layout.yaxis.range
+    assert (bajo + alto) / 2 == pytest.approx(1000.0) and alto - bajo == pytest.approx(10.0)   # mínimo ±5 °C
+    completa = graficas.figura_monitor(sim.historial, sim.duracion, ventana_min=None)   # toda la corrida
+    assert completa.layout.yaxis.range[0] < 30.0
+
+
+def test_la_escala_sigue_al_setpoint_si_cambia():
+    sim = Simulador()
+    sim.avanzar(int(100 * 60 / 0.1))
+    sim.config.horno.T_SET = 800.0
+    sim.avanzar(10)
+    bajo, alto = graficas.figura_monitor(sim.historial).layout.yaxis.range
+    assert (bajo + alto) / 2 == pytest.approx(800.0)
+
+
+def test_paredes_del_horno():
+    img = graficas.paredes_del_horno(900.0, 30.0)
+    assert img[0][0] == 900.0                            # pared
+    assert img[len(img) // 2][len(img[0]) // 2] == pytest.approx(30 + 0.8 * 870)   # cavidad
+
+
+def test_indicadores_sin_menos_cero():
+    from simulador_horno.web import indicadores as ind
+    assert ind.con_signo(-0.0) == ind.con_signo(-0.04) == ind.con_signo(0.0) == "0.0"
+    assert ind.con_signo(5) == "+5.0" and ind.con_signo(-2.26) == "-2.3"
+    assert ind.hhmmss(3725) == "1:02:05" and ind.minutos(None) == "—"
+    sim = Simulador()
+    sim.completar()
+    valores = dict(ind.indicadores(sim, True, sim.metricas()))
+    assert valores["Tiempo simulado"] == "2:00:00" and valores["Sobrepaso"] == "0.54 %"
+    assert valores["Tiempo al 90 %"] == "58.2 min" and valores["Factor activo"] == "x60"
+    assert "Corrida terminada" in ind.estado(sim, False)[0]
 
 
 def test_superponer_la_corrida_anterior(corrida):

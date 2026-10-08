@@ -1,22 +1,36 @@
-"""Gráficas web con Plotly: la misma identidad visual del monitor de escritorio.
+"""Gráficas web con Plotly: el monitor del horno en UN solo lienzo.
 
-Una figura con cuatro subgráficas que comparten el eje de tiempo (minutos
-simulados):
+Misma disposición e identidad visual que el monitor de escritorio:
 
-    Temperatura (con el setpoint) · Error (con la línea en cero)
-    Señal de control u (0 a 1)    · Franja térmica (Heatmap "Plasma")
+    ┌───────────────────────────────┬──────────────┬──┐
+    │ Temperatura vs. tiempo        │  PAREDES DEL │°C│
+    ├───────────────────────────────┤  HORNO       │  │
+    │ Error de control  · u (der.)  │ (colorimetría│  │
+    ├───────────────────────────────┴──────────────┤  │
+    │ Evolución del color térmico (histórico)      │  │
+    └──────────────────────────────────────────────┴──┘
 
-Las series se diezman a ``datos.MAX_PUNTOS`` antes de dibujar.
+- El eje de temperatura está CENTRADO EN EL SETPOINT y el del error en 0,
+  con el mismo semirango: se ve a simple vista cuánto se aleja el horno
+  por arriba o por debajo de la referencia. El semirango sale de la
+  desviación reciente, así que se abre durante la subida y se cierra al
+  estabilizarse.
+- El eje de tiempo está en MINUTOS simulados.
+- Las series se diezman a ``datos.MAX_PUNTOS`` antes de dibujar.
 """
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 from simulador_horno.configuracion import limites
 from simulador_horno.estilos import tema
 from simulador_horno.web.datos import diezmar, indices_diezmados
 
-ALTO = 760
-_FILAS = ("Temperatura (°C)", "Error de control (°C)", "Señal de control u", "Franja térmica")
+ALTO = 640
+_CURVAS = (0.0, 0.70)            # columna de las curvas (fracción del ancho)
+_HORNO = (0.75, 0.93)            # columna del dibujo del horno
+_FILA_T = (0.52, 0.95)
+_FILA_E = (0.20, 0.45)
+_FILA_FRANJA = (0.0, 0.10)
+_ALTO_HORNO, _ANCHO_HORNO, _GROSOR_PARED = 34, 32, 5
 
 
 def _rgba(color_hex, alpha):
@@ -31,7 +45,7 @@ def plantilla():
     return go.layout.Template(layout=go.Layout(
         paper_bgcolor=tema.G_FONDO,
         plot_bgcolor=tema.G_PANEL,
-        font=dict(color=tema.G_TEXTO, family="Inter, Segoe UI, sans-serif", size=13),
+        font=dict(color=tema.G_TEXTO, family="Inter, Segoe UI, sans-serif", size=12),
         colorway=list(tema.G_CORRIDAS),
         xaxis=eje, yaxis=eje,
         hoverlabel=dict(bgcolor=tema.G_PANEL, font=dict(color=tema.G_TEXTO)),
@@ -40,6 +54,25 @@ def plantilla():
 
 
 PLANTILLA = plantilla()
+
+
+def semirango(minutos, temperaturas, errores, T_set, ventana_min=tema.G_VENTANA_ESCALA_MIN):
+    """Máxima desviación reciente (|T − T_set| o |error|), con holgura y un mínimo.
+
+    ``ventana_min``: minutos finales que se consideran (None = toda la serie).
+    Se incluye el error porque con perturbaciones de la medición lleva ruido
+    añadido y puede superar la desviación de la temperatura.
+    """
+    if not minutos:
+        return tema.G_SEMIRANGO_MIN
+    desde = 0
+    if ventana_min is not None:
+        limite = minutos[-1] - ventana_min
+        while desde < len(minutos) - 1 and minutos[desde] < limite:
+            desde += 1
+    desviacion = max(max(abs(T - T_set) for T in temperaturas[desde:]),
+                     max(abs(e) for e in errores[desde:]))
+    return max(desviacion * tema.G_HOLGURA_ESCALA, tema.G_SEMIRANGO_MIN)
 
 
 def instantanea(historial, etiqueta="Corrida anterior"):
@@ -54,47 +87,96 @@ def instantanea(historial, etiqueta="Corrida anterior"):
     }
 
 
-def figura_monitor(historial, duracion=None, anterior=None):
-    """Figura del monitor. ``duracion`` (s) fija el eje x en [0, duración]."""
-    fig = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.045,
-                        row_heights=(0.40, 0.22, 0.22, 0.16), subplot_titles=_FILAS)
+def paredes_del_horno(T, T_amb):
+    """Imagen del corte del horno: paredes a T y la cavidad algo más fría."""
+    cavidad = T_amb + 0.8 * (T - T_amb)
+    g = _GROSOR_PARED
+    return [[T if (i < g or i >= _ALTO_HORNO - g or j < g or j >= _ANCHO_HORNO - g) else cavidad
+             for j in range(_ANCHO_HORNO)] for i in range(_ALTO_HORNO)]
+
+
+def _titulo(texto, x, y):
+    return dict(text=texto, x=x, y=y, xref="paper", yref="paper", xanchor="left", yanchor="bottom",
+                showarrow=False, font=dict(size=13, color=tema.G_TEXTO))
+
+
+def figura_monitor(historial, duracion=None, anterior=None, T_amb=None, ventana_min=tema.G_VENTANA_ESCALA_MIN):
+    """Figura del monitor.
+
+    ``duracion`` (s) fija el eje x en [0, duración]; ``anterior`` es una
+    ``instantanea`` para superponer; ``ventana_min`` son los minutos que
+    determinan la escala centrada (None = toda la corrida).
+    """
     actual = instantanea(historial, "Corrida actual")
     idx = indices_diezmados(len(historial))
     minutos = actual["minutos"]
+    hay_datos = bool(minutos)
+    T_set = historial.setpoints[-1] if hay_datos else None
+    T = historial.temperaturas[-1] if hay_datos else None
+    T_amb = (historial.temperaturas[0] if hay_datos else 0.0) if T_amb is None else T_amb
 
+    fig = go.Figure()
     if anterior is not None:
         estilo = dict(color=tema.G_CERO, width=1.6, dash="dot")
-        for fila, clave in ((1, "temperaturas"), (2, "errores"), (3, "potencias")):
+        for ejes, clave in (("x/y", "temperaturas"), ("x2/y2", "errores"), ("x2/y3", "potencias")):
+            xa, ya = ejes.split("/")
             fig.add_trace(go.Scatter(x=anterior["minutos"], y=anterior[clave], name=anterior["etiqueta"],
-                                     line=estilo, legendgroup="anterior", showlegend=fila == 1),
-                          row=fila, col=1)
+                                     line=estilo, legendgroup="anterior", showlegend=clave == "temperaturas",
+                                     xaxis=xa, yaxis=ya, hoverinfo="skip"))
 
     fig.add_trace(go.Scatter(x=minutos, y=diezmar(historial.setpoints, idx), name="Setpoint",
-                             line=dict(color=tema.G_SETPOINT, width=1.5, dash="dash")), row=1, col=1)
+                             line=dict(color=tema.G_SETPOINT, width=1.5, dash="dash"), xaxis="x", yaxis="y"))
     fig.add_trace(go.Scatter(x=minutos, y=actual["temperaturas"], name="Temperatura",
-                             line=dict(color=tema.G_TEMP, width=2.2)), row=1, col=1)
+                             line=dict(color=tema.G_TEMP, width=2.2), xaxis="x", yaxis="y"))
     fig.add_trace(go.Scatter(x=minutos, y=actual["errores"], name="Error",
-                             line=dict(color=tema.G_ERROR, width=1.8)), row=2, col=1)
-    fig.add_hline(y=0, line=dict(color=tema.G_CERO, width=1), row=2, col=1)
+                             line=dict(color=tema.G_ERROR, width=1.8), xaxis="x2", yaxis="y2"))
     fig.add_trace(go.Scatter(x=minutos, y=actual["potencias"], name="u",
-                             line=dict(color=tema.G_CORRIDAS[0], width=1.8)), row=3, col=1)
+                             line=dict(color=tema.G_CORRIDAS[0], width=1.3), opacity=0.8,
+                             xaxis="x2", yaxis="y3"))
     fig.add_trace(go.Heatmap(
         x=minutos, y=[0], z=[actual["temperaturas"]], name="Franja térmica",
-        colorscale=tema.MAPA_TERMICO.capitalize(),
-        zmin=limites.TEMP_MIN_COLOR, zmax=limites.TEMP_MAX_COLOR,
-        colorbar=dict(title=dict(text="°C"), len=0.45, y=0.0, yanchor="bottom", thickness=14),
-        hovertemplate="t = %{x:.1f} min<br>T = %{z:.1f} °C<extra></extra>",
-    ), row=4, col=1)
+        colorscale=tema.MAPA_TERMICO.capitalize(), zmin=limites.TEMP_MIN_COLOR, zmax=limites.TEMP_MAX_COLOR,
+        colorbar=dict(title=dict(text="°C"), x=0.955, xanchor="left", y=0.5, len=1.0, thickness=14),
+        hovertemplate="t = %{x:.1f} min<br>T = %{z:.1f} °C<extra></extra>", xaxis="x3", yaxis="y4",
+    ))
+    fig.add_trace(go.Heatmap(
+        z=paredes_del_horno(T if hay_datos else T_amb, T_amb), name="Paredes del horno",
+        colorscale=tema.MAPA_TERMICO.capitalize(), zmin=limites.TEMP_MIN_COLOR, zmax=limites.TEMP_MAX_COLOR,
+        showscale=False, hoverinfo="skip", xaxis="x4", yaxis="y5",
+    ))
 
-    fig.update_yaxes(range=[-0.05, 1.05], row=3, col=1)
-    fig.update_yaxes(showticklabels=False, showgrid=False, row=4, col=1)
-    fig.update_xaxes(title_text="Tiempo simulado (min)", row=4, col=1)
+    eje_t = dict(domain=_CURVAS, showticklabels=False)
     if duracion is not None:
-        fig.update_xaxes(range=[0, duracion / 60.0])
+        eje_t["range"] = [0, duracion / 60.0]
     fig.update_layout(
         template=PLANTILLA, height=ALTO, hovermode="x unified",
-        margin=dict(l=60, r=30, t=40, b=50),
-        legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="right", x=1),
+        margin=dict(l=64, r=20, t=34, b=44),
+        legend=dict(orientation="h", x=_CURVAS[1], xanchor="right", y=1.0, yanchor="bottom"),
         uirevision="monitor",   # conserva el zoom del usuario entre refrescos
+        xaxis=dict(anchor="y", **eje_t),
+        yaxis=dict(domain=_FILA_T, title=dict(text="Temperatura (°C)")),
+        xaxis2=dict(anchor="y2", matches="x", domain=_CURVAS, showticklabels=False),
+        yaxis2=dict(domain=_FILA_E, title=dict(text="Error (°C)"), zeroline=True,
+                    zerolinecolor=tema.G_CERO, zerolinewidth=1.5),
+        yaxis3=dict(overlaying="y2", side="right", range=[-0.05, 1.05], showgrid=False,
+                    tickvals=[0, 0.5, 1], ticksuffix=" u"),
+        xaxis3=dict(anchor="y4", matches="x", domain=_CURVAS, title=dict(text="Tiempo simulado (min)")),
+        yaxis4=dict(domain=_FILA_FRANJA, showticklabels=False, showgrid=False),
+        xaxis4=dict(anchor="y5", domain=_HORNO, visible=False, range=[-0.5, _ANCHO_HORNO - 0.5]),
+        yaxis5=dict(domain=(_FILA_E[0], _FILA_T[1]), visible=False, scaleanchor="x4",
+                    range=[-0.5, _ALTO_HORNO - 0.5]),
+        annotations=[
+            _titulo("Temperatura del horno — tendencia", _CURVAS[0], _FILA_T[1] + 0.005),
+            _titulo("Error de control (setpoint − medida) · potencia u →", _CURVAS[0], _FILA_E[1] + 0.005),
+            _titulo("Evolución del color térmico", _CURVAS[0], _FILA_FRANJA[1] + 0.005),
+            _titulo("Paredes del horno", _HORNO[0], _FILA_T[1] + 0.005),
+            dict(text=f"<b>{T:.0f} °C</b>" if hay_datos else "", x=sum(_HORNO) / 2,
+                 y=(_FILA_E[0] + _FILA_T[1]) / 2, xref="paper", yref="paper", showarrow=False,
+                 xanchor="center", yanchor="middle",
+                 font=dict(size=24, color="#ffffff"), bgcolor="rgba(0,0,0,0.6)", borderpad=6),
+        ],
     )
+    if hay_datos:
+        s = semirango(minutos, actual["temperaturas"], actual["errores"], T_set, ventana_min)
+        fig.update_layout(yaxis_range=[T_set - s, T_set + s], yaxis2_range=[-s, s])
     return fig
