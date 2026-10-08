@@ -156,7 +156,9 @@ streamlit run streamlit_app.py                           # abre la app en http:/
 python -m pytest                                         # pruebas automáticas (también en GitHub Actions)
 ```
 
-Para detener la app, pulsa `Ctrl+C` en la terminal. La versión de escritorio se ejecuta desde su propio repositorio, [Hornovirtual_2026](https://github.com/hombremono873/Hornovirtual_2026) (`dist\main.exe` o `python main.py`).
+Para detener la app, pulsa `Ctrl+C` en la terminal.
+
+**En Windows lo más simple es `iniciar_web.bat`** (doble clic, o escríbelo en una terminal dentro de `simulador`). Siempre usa el `.venv` de este proyecto, aunque en la terminal haya otro entorno activo; un `python -m streamlit ...` con otro entorno activo falla con *No module named streamlit*. La versión de escritorio se ejecuta desde su propio repositorio, [Hornovirtual_2026](https://github.com/hombremono873/Hornovirtual_2026) (`dist\main.exe` o `python main.py`).
 
 ## Publicar en Streamlit Community Cloud
 

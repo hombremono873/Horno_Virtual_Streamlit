@@ -10,6 +10,7 @@ Simulador **pedagógico** de un horno eléctrico con control PID (Métodos Numé
 .venv\Scripts\python -m pytest                    # 190 pruebas, ~20 s (-s muestra métricas)
 .venv\Scripts\python -m streamlit run streamlit_app.py   # http://localhost:8501
 ```
+- El usuario levanta la app con `iniciar_web.bat` (usa `.venv` explícito): su perfil de PowerShell tiene un `activate` que activa el entorno de otro proyecto (`usersdj`), así que nunca le des comandos con `python` a secas. `.vscode/settings.json` (en la carpeta de arriba, fuera del repo) apunta las terminales a `simulador\.venv`.
 - Si levantas Streamlit para comprobar algo, ciérralo al terminar. `AppTest` (tests/test_app.py) prueba la página sin servidor.
 - El `python` del PATH es 3.8: crea el venv con `C:\Users\usuario\AppData\Local\Programs\Python\Python313\python.exe -m venv .venv --clear`. El servidor Black de VS Code bloquea `.venv\Scripts\python.exe` al recrearlo.
 - CI: `.github/workflows/pruebas.yml` (Ubuntu, Python 3.13, como Streamlit Community Cloud).
