@@ -3,10 +3,9 @@ import math
 
 import pytest
 
-from simulador_horno.configuracion import parametros_horno as vhorno
-from simulador_horno.configuracion import parametros_pid as vpid
+from simulador_horno.configuracion.parametros import Configuracion, ParametrosPID
 from simulador_horno.simulacion.metricas import calcular
-from simulador_horno.simulacion.motor import Motor
+from simulador_horno.simulacion.simulador import Simulador
 
 TAU = 600.0
 
@@ -65,10 +64,9 @@ def test_sin_datos():
 
 
 def test_corrida_real_por_defecto():
-    motor = Motor()
-    motor.avanzar(int(2 * 3600 / vhorno.DT))
-    h = motor.historial
-    m = calcular(h.tiempos, h.temperaturas, vhorno.T_SET)
+    sim = Simulador()
+    sim.avanzar(int(2 * 3600 / sim.config.horno.DT))
+    m = sim.metricas()
     assert m.sobrepaso_pct == pytest.approx(0.54, abs=0.05)
     assert m.t90 / 60 == pytest.approx(58.2, abs=0.5)
     assert m.t_establecimiento / 60 == pytest.approx(70.6, abs=0.5)
@@ -77,10 +75,8 @@ def test_corrida_real_por_defecto():
 def test_las_metricas_distinguen_los_anti_windup():
     resultados = {}
     for modo in ("ninguno", "condicional"):
-        vpid.anti_windup = modo
-        motor = Motor()
-        motor.avanzar(int(2 * 3600 / vhorno.DT))
-        h = motor.historial
-        resultados[modo] = calcular(h.tiempos, h.temperaturas, vhorno.T_SET)
+        sim = Simulador(Configuracion(pid=ParametrosPID(anti_windup=modo)))
+        sim.avanzar(int(2 * 3600 / sim.config.horno.DT))
+        resultados[modo] = sim.metricas()
     assert resultados["ninguno"].sobrepaso_pct > 10 > resultados["condicional"].sobrepaso_pct
     assert resultados["ninguno"].iae > resultados["condicional"].iae

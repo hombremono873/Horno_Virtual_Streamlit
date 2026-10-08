@@ -1,8 +1,7 @@
 """Configuración del simulador.
 
-- ``parametros_horno``      : estado configurable de la planta térmica.
-- ``parametros_pid``        : estado configurable del controlador PID.
-- ``parametros_electricos`` : estado del modelo eléctrico (ángulo de conducción).
-- ``parametros_simulacion`` : velocidad de simulación elegida por el usuario.
-- ``limites``               : constantes fijas del simulador (no editables por el usuario).
+- ``parametros`` : dataclasses con lo que el usuario edita (horno, PID,
+                   perturbaciones, velocidad/método) agrupadas en ``Configuracion``.
+                   Cada simulador tiene la suya: no hay estado global.
+- ``limites``    : constantes fijas del simulador (no editables por el usuario).
 """

@@ -6,6 +6,9 @@ probarse sin Streamlit ni Plotly: la interfaz web es solo una capa encima.
 import subprocess
 import sys
 
+from simulador_horno.configuracion.parametros import Configuracion, Perturbaciones
+from simulador_horno.simulacion.simulador import Simulador
+
 INTERFACES = ("streamlit", "plotly", "pandas", "rich", "PySide6", "pyqtgraph")
 
 
@@ -14,7 +17,7 @@ def test_el_nucleo_no_importa_ninguna_interfaz():
         "import sys\n"
         "import simulador_horno.control.senal_error, simulador_horno.control.pid\n"
         "import simulador_horno.modelo.horno, simulador_horno.numerico.estabilidad\n"
-        "import simulador_horno.simulacion.motor, simulador_horno.simulacion.reloj\n"
+        "import simulador_horno.simulacion.simulador, simulador_horno.simulacion.reloj\n"
         "import simulador_horno.simulacion.metricas, simulador_horno.simulacion.resultados\n"
         f"malos = [m for m in {INTERFACES!r} if m in sys.modules]\n"
         "assert not malos, malos\n"
@@ -23,10 +26,7 @@ def test_el_nucleo_no_importa_ninguna_interfaz():
     assert resultado.returncode == 0, resultado.stderr
 
 
-def test_el_motor_cuenta_los_impulsos():
-    from simulador_horno.configuracion import parametros_horno as vhorno
-    from simulador_horno.simulacion.motor import Motor
-    vhorno.flag_error = True
-    motor = Motor(semilla=11)
-    motor.avanzar(int(3 * 3600 / vhorno.DT))
-    assert 5 <= motor.impulsos <= 40      # ~6 por hora (tasa por defecto)
+def test_el_simulador_cuenta_los_impulsos():
+    sim = Simulador(Configuracion(perturbaciones=Perturbaciones(flag_error=True)), semilla=11)
+    sim.avanzar(int(3 * 3600 / sim.config.horno.DT))
+    assert 5 <= sim.impulsos <= 40      # ~6 por hora (tasa por defecto)

@@ -2,10 +2,10 @@
 
 Paquete organizado por responsabilidad:
 
-- ``configuracion`` : parámetros editables (horno, PID) y constantes fijas.
+- ``configuracion`` : parámetros editables (dataclasses, uno por simulador) y constantes fijas.
 - ``modelo``        : lo que se simula — ecuación del horno, perturbaciones, actuador.
 - ``control``       : el controlador — PID, anti-windup, saturación y señal de error.
-- ``numerico``      : métodos numéricos de integración (Heun, Runge-Kutta 4).
-- ``simulacion``    : orquestación del bucle de simulación e historial.
+- ``numerico``      : métodos de integración (Euler, Heun, RK4), comparación y estabilidad.
+- ``simulacion``    : el ``Simulador`` (una corrida sin E/S), historial, métricas y CSV.
 - ``estilos``       : paleta y medidas visuales compartidas.
 """

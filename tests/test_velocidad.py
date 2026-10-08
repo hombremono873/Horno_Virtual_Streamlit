@@ -1,7 +1,8 @@
 """Compresión de tiempo: N pasos por refresco con relación simulado/real = factor."""
 import pytest
 
-from simulador_horno.configuracion import limites, parametros_simulacion
+from simulador_horno.configuracion import limites
+from simulador_horno.configuracion.parametros import ParametrosSimulacion
 from simulador_horno.simulacion.reloj import pasos_por_refresco
 
 FACTORES = [f for f in limites.VELOCIDADES.values() if f is not None]
@@ -32,6 +33,6 @@ def test_x1_reparte_la_fraccion():
 
 
 def test_velocidades_disponibles():
-    assert parametros_simulacion.velocidad == "x60"
+    assert ParametrosSimulacion().velocidad == "x60"
     assert list(limites.VELOCIDADES) == ["x1", "x10", "x60", "x600", "máxima"]
     assert limites.VELOCIDADES["máxima"] is None

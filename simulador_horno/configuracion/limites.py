@@ -1,8 +1,8 @@
 # ================================================================
 # CONSTANTES FIJAS DEL SIMULADOR
 # ================================================================
-# A diferencia de parametros_horno / parametros_pid, estos valores NO
-# se editan desde el menú: son límites y ajustes internos del programa.
+# A diferencia de configuracion.parametros, estos valores NO los edita
+# el usuario: son límites y ajustes internos del programa.
 
 # --- Controlador -------------------------------------------------
 U_MAX = 20000.0        # escala de saturación de la señal de control (control.escalado)
@@ -37,7 +37,7 @@ CARPETA_RESULTADOS = "resultados"
 CSV_SEPARADOR = ";"
 CSV_DECIMAL = ","
 
-# --- Perturbación de impulso (control.senal_error) ----------------
+# --- Perturbación de impulso (modelo.perturbaciones) --------------
 # Tasa expresada por hora SIMULADA para que no dependa de DT. Con ~6/h
 # una corrida típica (~75 min) recibe unos 7 impulsos: visibles sin
 # saturar la gráfica.
@@ -46,7 +46,7 @@ DURACION_IMPULSO = 3       # s simulados
 MAGNITUD_IMPULSO = 80      # °C sumados al error
 
 # --- Perturbaciones sobre la medición y sobre el horno -----------
-# (atributo de parametros_horno, nombre visible, sobre qué actúa)
+# (atributo de parametros.Perturbaciones, nombre visible, sobre qué actúa)
 PERTURBACIONES = (
     ("error_oscilante", "Error oscilante", "medición"),
     ("flag_error", "Impulsos en el error", "medición"),

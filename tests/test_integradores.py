@@ -8,11 +8,11 @@ import math
 
 import pytest
 
-from simulador_horno.configuracion import parametros_horno as vhorno
-from simulador_horno.configuracion import parametros_simulacion as vsim
-from simulador_horno.configuracion.parametros import ParametrosHorno
+from simulador_horno.configuracion.parametros import (
+    Configuracion, ParametrosHorno, ParametrosSimulacion,
+)
 from simulador_horno.numerico.integradores import METODOS, NOMBRES
-from simulador_horno.simulacion.motor import Motor
+from simulador_horno.simulacion.simulador import Simulador
 
 ORDEN = {"euler": 1, "heun": 2, "rk4": 4}
 HORIZONTE = 3600.0   # s simulados
@@ -61,26 +61,37 @@ def test_orden_de_convergencia(metodo):
     assert orden == pytest.approx(ORDEN[metodo], abs=0.15)
 
 
+def simulador(metodo, dt=0.1):
+    return Simulador(Configuracion(horno=ParametrosHorno(DT=dt),
+                                   simulacion=ParametrosSimulacion(metodo=metodo)))
+
+
 def test_euler_por_defecto():
-    assert vsim.metodo == "euler"
-    assert Motor().metodo == "euler"
+    assert ParametrosSimulacion().metodo == "euler"
+    assert Simulador().metodo == "euler"
 
 
 @pytest.mark.parametrize("metodo", list(METODOS))
-def test_motor_usa_el_metodo_elegido_y_alcanza_el_setpoint(metodo):
-    vsim.metodo = metodo
-    motor = Motor()
-    assert motor.metodo == metodo
-    motor.avanzar(int(3 * 3600 / vhorno.DT))
-    assert motor.T == pytest.approx(vhorno.T_SET, abs=0.5)
+def test_simulador_usa_el_metodo_elegido_y_alcanza_el_setpoint(metodo):
+    sim = simulador(metodo)
+    assert sim.metodo == metodo
+    sim.avanzar(int(3 * 3600 / sim.config.horno.DT))
+    assert sim.T == pytest.approx(sim.config.horno.T_SET, abs=0.5)
 
 
 def test_metodos_dan_curvas_distintas_con_dt_grande():
     # Con Δt = 30 s Euler se aparta claramente de RK4 durante la subida.
     finales = {}
     for metodo in ("euler", "rk4"):
-        vsim.metodo, vhorno.DT = metodo, 30.0
-        motor = Motor()
-        motor.avanzar(int(20 * 60 / vhorno.DT))   # 20 min de subida a potencia plena
-        finales[metodo] = motor.T
+        sim = simulador(metodo, dt=30.0)
+        sim.avanzar(int(20 * 60 / 30.0))   # 20 min de subida a potencia plena
+        finales[metodo] = sim.T
     assert abs(finales["euler"] - finales["rk4"]) > 0.5
+
+
+def test_el_metodo_se_fija_al_reiniciar():
+    sim = simulador("euler")
+    sim.config.simulacion.metodo = "rk4"
+    assert sim.metodo == "euler"
+    sim.reiniciar()
+    assert sim.metodo == "rk4"

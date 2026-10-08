@@ -5,23 +5,21 @@ import statistics
 import pytest
 
 from simulador_horno.configuracion import limites
-from simulador_horno.configuracion import parametros_horno as vhorno
-from simulador_horno.configuracion.parametros import ParametrosHorno
+from simulador_horno.configuracion.parametros import Configuracion, ParametrosHorno, Perturbaciones
 from simulador_horno.modelo import horno as modelo_horno
 from simulador_horno.modelo.perturbaciones import (
     EventoAleatorio, factor_potencia_red, temperatura_ambiente,
 )
-from simulador_horno.simulacion.motor import Motor
+from simulador_horno.simulacion.simulador import Simulador
 
 HORAS = 4
+T_SET = ParametrosHorno().T_SET
 
 
 def regimen(**perturbaciones):
     """Corre HORAS con las perturbaciones dadas; devuelve (motor, T reales y errores de 2 h a 4 h)."""
-    for atributo, valor in perturbaciones.items():
-        setattr(vhorno, atributo, valor)
-    motor = Motor(semilla=5)
-    motor.avanzar(int(HORAS * 3600 / vhorno.DT))
+    motor = Simulador(Configuracion(perturbaciones=Perturbaciones(**perturbaciones)), semilla=5)
+    motor.avanzar(int(HORAS * 3600 / motor.config.horno.DT))
     h = motor.historial
     return motor, h.temperaturas[2 * 3600:], h.errores[2 * 3600:]
 
@@ -50,8 +48,8 @@ def test_sin_perturbaciones_la_temperatura_queda_plana():
 def test_puerta_abierta_hace_caer_la_temperatura_y_el_pid_la_recupera():
     motor, T, _ = regimen(puerta=True)
     assert motor.aperturas >= 3
-    assert min(T) < vhorno.T_SET - 20                       # caídas visibles
-    assert abs(motor.T - vhorno.T_SET) < 10 or motor.puerta_abierta
+    assert min(T) < T_SET - 20                       # caídas visibles
+    assert abs(motor.T - T_SET) < 10 or motor.puerta_abierta
 
 
 def test_tasa_de_aperturas_independiente_de_dt():
@@ -70,7 +68,7 @@ def test_tasa_de_aperturas_independiente_de_dt():
 def test_red_variable_hace_oscilar_la_temperatura_alrededor_del_setpoint():
     _, T, _ = regimen(red_variable=True)
     assert statistics.pstdev(T) > 0.5
-    assert abs(statistics.fmean(T) - vhorno.T_SET) < 1.0
+    assert abs(statistics.fmean(T) - T_SET) < 1.0
     a = sum(limites.RED_AMPLITUDES)
     for t in range(0, 3600, 7):
         assert (1 - a) ** 2 <= factor_potencia_red(t, limites.RED_AMPLITUDES, limites.RED_PERIODOS) <= (1 + a) ** 2
@@ -79,7 +77,7 @@ def test_red_variable_hace_oscilar_la_temperatura_alrededor_del_setpoint():
 def test_ambiente_variable_apenas_afecta_a_un_horno_controlado():
     assert temperatura_ambiente(900, 30.0, 10.0, 3600) == pytest.approx(40.0)   # cuarto de periodo
     _, T, _ = regimen(ambiente_variable=True)
-    assert max(abs(x - vhorno.T_SET) for x in T) < 0.5
+    assert max(abs(x - T_SET) for x in T) < 0.5
 
 
 def test_ruido_del_termopar_afecta_la_lectura_no_al_horno():
@@ -89,11 +87,14 @@ def test_ruido_del_termopar_afecta_la_lectura_no_al_horno():
 
 
 def test_apagar_las_perturbaciones_devuelve_el_horno_ideal():
-    base = Motor()
+    base = Simulador()
     base.avanzar(20000)
-    regimen(puerta=True, red_variable=True, ambiente_variable=True, ruido_termopar=True)
+    config = Configuracion(perturbaciones=Perturbaciones(puerta=True, red_variable=True,
+                                                         ambiente_variable=True, ruido_termopar=True))
+    otra = Simulador(config, semilla=5)
+    otra.avanzar(20000)
     for atributo, _, _ in limites.PERTURBACIONES:
-        setattr(vhorno, atributo, False)
-    otra = Motor()
+        setattr(config.perturbaciones, atributo, False)
+    otra.reiniciar()
     otra.avanzar(20000)
     assert otra.T == base.T

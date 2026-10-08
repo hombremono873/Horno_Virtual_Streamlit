@@ -3,10 +3,8 @@ from datetime import datetime
 
 import pytest
 
-from simulador_horno.configuracion import parametros_horno as vhorno
 from simulador_horno.simulacion import resultados
-from simulador_horno.simulacion.metricas import calcular
-from simulador_horno.simulacion.motor import Motor
+from simulador_horno.simulacion.simulador import Simulador
 
 FECHA = datetime(2026, 10, 8, 14, 30, 15)
 PARAMETROS = {"metodo": "rk4", "dt": 0.1, "anti_windup": "condicional", "KP": 200, "B": 0.42333}
@@ -14,9 +12,9 @@ PARAMETROS = {"metodo": "rk4", "dt": 0.1, "anti_windup": "condicional", "KP": 20
 
 @pytest.fixture
 def corrida():
-    motor = Motor()
-    motor.avanzar(int(600 / vhorno.DT))      # 10 min simulados -> ~600 muestras
-    return motor
+    sim = Simulador()
+    sim.avanzar(int(600 / sim.config.horno.DT))      # 10 min simulados -> ~600 muestras
+    return sim
 
 
 def test_nombre_del_archivo():
@@ -25,9 +23,8 @@ def test_nombre_del_archivo():
 
 
 def test_ida_y_vuelta(corrida, tmp_path):
-    h = corrida.historial
-    m = calcular(h.tiempos, h.temperaturas, vhorno.T_SET)
-    ruta = resultados.guardar(h, vhorno.T_SET, PARAMETROS, m, carpeta=tmp_path, fecha=FECHA)
+    h, T_SET = corrida.historial, corrida.config.horno.T_SET
+    ruta = resultados.guardar(h, T_SET, PARAMETROS, corrida.metricas(), carpeta=tmp_path, fecha=FECHA)
     assert ruta.parent == tmp_path and ruta.exists()
 
     parametros, series = resultados.leer(ruta)
@@ -35,14 +32,15 @@ def test_ida_y_vuelta(corrida, tmp_path):
     assert len(series["t_s"]) == len(h.tiempos)
     assert series["T_C"] == pytest.approx(h.temperaturas, abs=1e-4)
     assert series["u"] == pytest.approx(h.potencias, abs=1e-5)
-    assert set(series["T_set_C"]) == {vhorno.T_SET}
+    assert set(series["T_set_C"]) == {T_SET}
     assert parametros["metodo"] == "rk4" and parametros["KP"] == "200"
     assert parametros["fecha"] == "2026-10-08 14:30:15"
     assert "metrica_sobrepaso_pct" in parametros
 
 
 def test_formato_para_excel_en_espanol(corrida, tmp_path):
-    ruta = resultados.guardar(corrida.historial, vhorno.T_SET, PARAMETROS, carpeta=tmp_path, fecha=FECHA)
+    ruta = resultados.guardar(corrida.historial, corrida.config.horno.T_SET, PARAMETROS,
+                              carpeta=tmp_path, fecha=FECHA)
     crudo = ruta.read_bytes()
     assert crudo.startswith(b"\xef\xbb\xbf")                 # BOM: Excel muestra bien ° y tildes
     texto = crudo.decode("utf-8-sig")

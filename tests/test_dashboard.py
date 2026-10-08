@@ -4,21 +4,16 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from simulador_horno.configuracion import parametros_horno as vhorno
-from simulador_horno.configuracion import parametros_pid as vpid
+from simulador_horno.configuracion.parametros import Configuracion, ParametrosPID
 from simulador_horno.simulacion import resultados
-from simulador_horno.simulacion.metricas import calcular
-from simulador_horno.simulacion.motor import Motor
+from simulador_horno.simulacion.simulador import Simulador
 
 
-def guardar_corrida(carpeta, minutos, minuto, **parametros):
-    motor = Motor()
-    motor.avanzar(int(minutos * 60 / vhorno.DT))
-    h = motor.historial
-    m = calcular(h.tiempos, h.temperaturas, vhorno.T_SET)
-    datos = {"metodo": "euler", "dt": 0.1, "anti_windup": vpid.anti_windup, "KP": 200, "KI": 10, "KD": 2,
-             **parametros}
-    ruta = resultados.guardar(h, vhorno.T_SET, datos, m, carpeta=carpeta,
+def guardar_corrida(carpeta, minutos, minuto, anti_windup="condicional"):
+    sim = Simulador(Configuracion(pid=ParametrosPID(anti_windup=anti_windup)))
+    sim.avanzar(int(minutos * 60 / sim.config.horno.DT))
+    ruta = resultados.guardar(sim.historial, sim.config.horno.T_SET, sim.parametros_corrida(),
+                              sim.metricas(), carpeta=carpeta,
                               fecha=datetime(2026, 10, 8, 15, 0) + timedelta(minutes=minuto))
     time.sleep(0.02)   # mtime distinto para ordenar
     return ruta
@@ -27,7 +22,6 @@ def guardar_corrida(carpeta, minutos, minuto, **parametros):
 @pytest.fixture
 def dos_corridas(tmp_path):
     a = guardar_corrida(tmp_path, 90, 0)
-    vpid.anti_windup = "ninguno"
     b = guardar_corrida(tmp_path, 90, 1, anti_windup="ninguno")
     return tmp_path, a, b
 

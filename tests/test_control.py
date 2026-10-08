@@ -1,9 +1,9 @@
 """Señal de control acotada a [0, 1] y desempeño de la corrida por defecto."""
 import pytest
 
-from simulador_horno.configuracion import parametros_horno as vhorno
+from simulador_horno.configuracion.parametros import Configuracion, Perturbaciones
 from simulador_horno.control.escalado import escalar_u
-from simulador_horno.simulacion.motor import Motor
+from simulador_horno.simulacion.simulador import Simulador
 
 HORAS = 4
 
@@ -14,35 +14,37 @@ def test_escalar_u_satura_en_0_1(u_bruto, esperado):
 
 
 @pytest.mark.parametrize("perturbaciones", [False, True])
-def test_u_nunca_sale_de_0_1(perturbaciones, monkeypatch):
-    vhorno.error_oscilante = vhorno.flag_error = perturbaciones
-    motor = Motor(semilla=1234)
+def test_u_nunca_sale_de_0_1(perturbaciones):
+    config = Configuracion(perturbaciones=Perturbaciones(error_oscilante=perturbaciones,
+                                                         flag_error=perturbaciones))
+    sim = Simulador(config, semilla=1234)
     u_min, u_max = 1.0, 0.0
-    for _ in range(int(HORAS * 3600 / vhorno.DT)):
-        u, _ = motor.paso()
+    for _ in range(int(HORAS * 3600 / config.horno.DT)):
+        u, _ = sim.paso()
         u_min, u_max = min(u_min, u), max(u_max, u)
     assert 0.0 <= u_min and u_max <= 1.0
 
 
 def metricas_corrida_por_defecto():
     """Corre 4 h simuladas: (t al 90 %, sobrepaso %, error final °C, establecimiento ±1 %)."""
-    motor = Motor()
-    salto = vhorno.T_SET - vhorno.T_AMB
-    umbral_90 = vhorno.T_AMB + 0.9 * salto
+    sim = Simulador()
+    horno = sim.config.horno
+    salto = horno.T_SET - horno.T_AMB
+    umbral_90 = horno.T_AMB + 0.9 * salto
     banda = 0.01 * salto
     t90 = t_est = None
-    T_max = motor.T
-    for _ in range(int(HORAS * 3600 / vhorno.DT)):
-        motor.paso()
-        T_max = max(T_max, motor.T)
-        if t90 is None and motor.T >= umbral_90:
-            t90 = motor.t
-        if abs(vhorno.T_SET - motor.T) > banda:
+    T_max = sim.T
+    for _ in range(int(HORAS * 3600 / horno.DT)):
+        sim.paso()
+        T_max = max(T_max, sim.T)
+        if t90 is None and sim.T >= umbral_90:
+            t90 = sim.t
+        if abs(horno.T_SET - sim.T) > banda:
             t_est = None
         elif t_est is None:
-            t_est = motor.t
-    sobrepaso = max(0.0, (T_max - vhorno.T_SET) / salto * 100)
-    return t90, sobrepaso, vhorno.T_SET - motor.T, t_est
+            t_est = sim.t
+    sobrepaso = max(0.0, (T_max - horno.T_SET) / salto * 100)
+    return t90, sobrepaso, horno.T_SET - sim.T, t_est
 
 
 def test_corrida_por_defecto_alcanza_setpoint():

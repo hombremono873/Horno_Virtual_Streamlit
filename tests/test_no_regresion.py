@@ -25,11 +25,8 @@ from pathlib import Path
 import pytest
 
 from simulador_horno.configuracion import limites
-from simulador_horno.configuracion import parametros_horno as vhorno
-from simulador_horno.configuracion import parametros_pid as vpid
-from simulador_horno.configuracion import parametros_simulacion as vsim
-from simulador_horno.simulacion import metricas
-from simulador_horno.simulacion.motor import Motor
+from simulador_horno.configuracion.parametros import Configuracion
+from simulador_horno.simulacion.simulador import Simulador
 
 CARPETA = Path(__file__).parent / "referencias"
 PERTURBACIONES = tuple(a for a, _, _ in limites.PERTURBACIONES)
@@ -51,17 +48,19 @@ ESCENARIOS = {
 
 
 def correr(horas, semilla, cambios):
-    """Ejecuta un escenario y devuelve el motor al terminar."""
+    """Ejecuta un escenario y devuelve el simulador al terminar."""
+    config = Configuracion()
+    partes = (config.simulacion, config.pid, config.perturbaciones, config.horno)
     for clave, valor in cambios.items():
-        for modulo in (vsim, vpid, vhorno):
-            if hasattr(modulo, clave):
-                setattr(modulo, clave, valor)
+        for parte in partes:
+            if hasattr(parte, clave):
+                setattr(parte, clave, valor)
                 break
         else:
             raise KeyError(clave)
-    motor = Motor(semilla=semilla)
-    motor.avanzar(round(horas * 3600 / vhorno.DT))
-    return motor
+    sim = Simulador(config, semilla=semilla)
+    sim.avanzar(round(horas * 3600 / config.horno.DT))
+    return sim
 
 
 def huella(historial):
@@ -73,7 +72,7 @@ def huella(historial):
 
 def resumen(motor):
     h = motor.historial
-    m = metricas.calcular(h.tiempos, h.temperaturas, vhorno.T_SET)
+    m = motor.metricas()
     return {
         "sha256": huella(h),
         "muestras": len(h.tiempos),
