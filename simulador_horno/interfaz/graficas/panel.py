@@ -83,9 +83,12 @@ class PanelGraficas:
         # queda congelada mientras la simulación avanza fuera de cuadro.
         # El historial puede tener decenas de miles de muestras: se diezma
         # al dibujar (conservando picos) y solo se pinta lo visible.
-        # Sin prefijos SI automáticos: "1000 °C", no "1.0 k°C".
+        # Sin prefijos SI automáticos: "1000 °C", no "1.0 k°C". Mismo ancho de
+        # eje Y en ambas: con anchos distintos el enlace del eje X desplazaba
+        # la vista del error y ocultaba su primer minuto.
         for grafica, curva in ((self.p_temp, self.c_temp), (self.p_err, self.c_err)):
             grafica.getAxis("left").enableAutoSIPrefix(False)
+            grafica.getAxis("left").setWidth(64)
             grafica.setMouseEnabled(x=False, y=False)
             grafica.setMenuEnabled(False)
             grafica.hideButtons()
@@ -168,8 +171,14 @@ class PanelGraficas:
         desviacion = float(max(np.max(np.abs(temps - T_set)), np.max(np.abs(errs))))
         return max(desviacion * tema.G_HOLGURA_ESCALA, tema.G_SEMIRANGO_MIN)
 
-    def actualizar(self, tiempos, temperaturas, errores, T, T_set):
+    def actualizar(self, tiempos, temperaturas, errores, T, T_set, duracion=None):
+        """``duracion`` (s simulados): si se da, el eje X abarca la corrida
+        completa desde el inicio y se ve el avance hacia el final."""
         minutos = np.asarray(tiempos, dtype=float) / 60.0
+        if duracion is not None:
+            fin = duracion / 60.0
+            self.p_temp.setXRange(0.0, fin, padding=0.01)   # p_err está enlazado
+            self.p_img.setXRange(0.0, fin, padding=0.0)
 
         # tendencia + error
         self.c_temp.setData(minutos, temperaturas)
@@ -196,8 +205,10 @@ class PanelGraficas:
         if len(minutos):
             fila = np.asarray(temperaturas, dtype=float).reshape(1, -1)
             ancho = float(minutos[-1] - minutos[0]) or 1.0
-            self.img_franja.setRect(QtCore.QRectF(float(minutos[0]), 0.0, ancho, 1.0))
+            # primero la imagen y después el rectángulo: setRect escala según el
+            # ancho de la imagen ACTUAL; al revés, la franja quedaba estirada
             self.img_franja.setImage(fila, autoLevels=False, levels=self._niveles)
+            self.img_franja.setRect(QtCore.QRectF(float(minutos[0]), 0.0, ancho, 1.0))
 
         self.app.processEvents()
 

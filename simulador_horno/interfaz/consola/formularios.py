@@ -168,7 +168,7 @@ def configurar_anti_windup():
 
 
 # ----------------------------------------------------------------------
-# Velocidad de simulación (opción 6)
+# Velocidad y duración de la simulación (opción 6)
 # ----------------------------------------------------------------------
 _DESCRIPCION_VELOCIDAD = {
     "x1": "Tiempo real · 1 s simulado por segundo",
@@ -179,8 +179,10 @@ _DESCRIPCION_VELOCIDAD = {
 }
 
 _AYUDA_VELOCIDAD = Text.from_markup(
-    "Comprime el tiempo de EJECUCIÓN, no la física: el paso DT y los\n"
-    "resultados son los mismos a cualquier velocidad."
+    "La velocidad comprime el tiempo de EJECUCIÓN, no la física: el paso DT y\n"
+    "los resultados son los mismos a cualquier velocidad.\n\n"
+    "La duración son las horas SIMULADAS tras las que la corrida se detiene\n"
+    "sola, dejando las gráficas a la vista para analizarlas."
 )
 
 
@@ -193,11 +195,54 @@ def configurar_velocidad():
         inicial=claves.index(sim.velocidad) if sim.velocidad in claves else 0,
     )
     indice = int(eleccion) - 1
-    if indice < len(claves):
-        sim.velocidad = claves[indice]
+    if indice >= len(claves):
+        return   # "Volver": no cambia nada
+    sim.velocidad = claves[indice]
 
-    marco.cabecera_seccion("VELOCIDAD DE SIMULACIÓN", _AYUDA_VELOCIDAD, migas=["Velocidad"])
-    marco.resumen("Velocidad", {"activa": sim.velocidad})
+    duraciones = list(limites.DURACIONES_HORAS)
+    items = [(str(i), marco.texto_duracion(h).capitalize(), _descripcion_duracion(h))
+             for i, h in enumerate(duraciones, 1)]
+    # último ítem = conservar: Esc / Q eligen el último, así no cambian la duración
+    items.append((str(len(items) + 1), "Conservar",
+                  f"Mantener la duración actual ({marco.texto_duracion(sim.duracion_horas)})"))
+    eleccion = marco.menu_interactivo(
+        "DURACIÓN DE LA CORRIDA", items, migas=["Velocidad y duración"],
+        inicial=duraciones.index(sim.duracion_horas) if sim.duracion_horas in duraciones else 0,
+    )
+    indice = int(eleccion) - 1
+    if indice < len(duraciones):
+        sim.duracion_horas = duraciones[indice]
+
+    marco.cabecera_seccion("VELOCIDAD Y DURACIÓN", _AYUDA_VELOCIDAD, migas=["Velocidad y duración"])
+    marco.resumen("Velocidad y duración", {
+        "velocidad": sim.velocidad,
+        "duración": marco.texto_duracion(sim.duracion_horas),
+        "tiempo real aprox.": _tiempo_real(sim.velocidad, sim.duracion_horas),
+    })
+
+
+def _descripcion_duracion(horas):
+    """Pensadas para la configuración por defecto (llega al setpoint hacia el min 74)."""
+    if horas is None:
+        return "Corre hasta cerrar el monitor"
+    if horas < 1:
+        return "Primera parte de la subida"
+    if horas == 1:
+        return "Casi toda la subida; por defecto aún no llega al setpoint"
+    if horas == 2:
+        return "Subida, llegada y estabilización (recomendada)"
+    return "Para observar el régimen permanente"
+
+
+def _tiempo_real(velocidad, horas):
+    """Cuánto durará la corrida en tiempo real con esa velocidad."""
+    factor = limites.VELOCIDADES[velocidad]
+    if horas is None:
+        return "indefinido"
+    if factor is None:
+        return "unos segundos"
+    segundos = horas * 3600 / factor
+    return f"~{segundos / 60:.0f} min" if segundos >= 90 else f"~{segundos:.0f} s"
 
 
 # ----------------------------------------------------------------------

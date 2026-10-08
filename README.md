@@ -160,17 +160,25 @@ En los formularios, `Enter` sin escribir nada conserva el valor actual (se muest
 | `3` Error oscilante | Ruido + senoide sobre el error |
 | `4` Error de impulso | Impulsos térmicos aleatorios (~6 por hora simulada) |
 | `5` Anti-windup | Ninguno, recorte de la integral o integración condicional (por defecto) |
-| `6` Velocidad de simulación | x1, x10, x60 (por defecto), x600 o máxima |
+| `6` Velocidad y duración | x1, x10, x60 (por defecto), x600 o máxima; duración de 30 min a 8 h (2 h por defecto) o sin límite |
 | `7` Método numérico | Euler (por defecto), Heun (RK2) o Runge-Kutta 4 |
 | `8` Ejecutar simulación | Abre el monitor en tiempo real |
 | `9` Salir | Cierra el simulador |
 
-**Velocidad de simulación (opción 6)**
+**Velocidad y duración (opción 6)**
 
 El horno real tarda más de una hora en llegar a 1000 °C. La velocidad comprime
 el tiempo de **ejecución**, no la física: con x60 cada segundo real equivale a un
 minuto simulado y la subida completa se ve en poco más de un minuto. El paso de
 integración `Δt` y los resultados son los mismos a cualquier velocidad.
+
+Después de la velocidad se elige la **duración**: 30 min, 1 h, **2 h (por defecto)**,
+4 h, 8 h o sin límite, en horas simuladas. Al completarla la corrida se detiene
+sola y el monitor queda abierto, con el aviso "CORRIDA TERMINADA", para analizar
+las gráficas; se vuelve al menú cerrando el monitor o con `Ctrl+C`. El eje de
+tiempo abarca la duración completa desde el inicio. Con la configuración por
+defecto el horno llega al setpoint hacia el minuto 74, así que 2 h muestran la
+subida, la llegada y la estabilización (a x60, unos 2 minutos reales).
 
 **Método numérico (opción 7)**
 

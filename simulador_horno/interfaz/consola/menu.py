@@ -7,7 +7,7 @@ ITEMS = [
     ("3", "Error oscilante", "Ruido + senoide sobre el error"),
     ("4", "Error de impulso", "Impulsos térmicos probabilísticos"),
     ("5", "Anti-windup", "Ninguno, recorte o integración condicional"),
-    ("6", "Velocidad de simulación", "x1, x10, x60, x600 o máxima"),
+    ("6", "Velocidad y duración", "Ritmo de la corrida y cuándo se detiene"),
     ("7", "Método numérico", "Euler, Heun (RK2) o Runge-Kutta 4"),
     ("8", "Ejecutar simulación", "Abre el monitor en tiempo real"),
     ("9", "Salir", "Cerrar el simulador"),

@@ -37,6 +37,13 @@ ATAJOS_MENU = [("↑ ↓", "moverse"), ("1-9", "acceso directo"), ("Enter", "ele
 ATAJOS_INFO = [("cualquier tecla", "continuar")]
 
 
+def texto_duracion(horas):
+    """``0.5`` -> ``'30 min'``, ``2`` -> ``'2 h'``, ``None`` -> ``'sin límite'``."""
+    if horas is None:
+        return "sin límite"
+    return f"{horas * 60:g} min" if horas < 1 else f"{horas:g} h"
+
+
 # ======================================================================
 # Lectura de teclado
 # ======================================================================
@@ -113,6 +120,7 @@ def panel_estado():
     activas = [n for n, on in (("oscilante", vhorno.error_oscilante), ("impulso", vhorno.flag_error)) if on]
     t.add_row("Perturbación", ", ".join(activas) or "ninguna")
     t.add_row("Velocidad", vsim.velocidad)
+    t.add_row("Duración", texto_duracion(vsim.duracion_horas))
     t.add_row("Método numérico", NOMBRES_METODOS.get(vsim.metodo, vsim.metodo))
     return Panel(
         t, title="Estado del sistema", title_align="left",

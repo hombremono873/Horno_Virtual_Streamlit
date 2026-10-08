@@ -6,7 +6,10 @@ ejecutan N pasos del motor, con N elegido según la velocidad activa
 consola y el monitor gráfico y se espera el resto del refresco. En modo
 "máxima" no se espera: se calculan pasos durante todo el refresco.
 
-La simulación termina con Ctrl+C o al cerrar la ventana.
+Al completar la duración elegida (``parametros_simulacion.duracion_horas``)
+la corrida deja de avanzar, pero el bucle sigue refrescando la pantalla para
+que el monitor responda mientras el estudiante analiza las gráficas. Se
+vuelve al menú con Ctrl+C o al cerrar la ventana.
 """
 import time
 
@@ -22,7 +25,7 @@ from simulador_horno.interfaz.consola.tabla_vivo import generar_tabla
 from simulador_horno.interfaz.graficas.panel import PanelGraficas
 from simulador_horno.numerico.integradores import NOMBRES as NOMBRES_METODOS
 from simulador_horno.simulacion.motor import Motor
-from simulador_horno.simulacion.reloj import pasos_por_refresco
+from simulador_horno.simulacion.reloj import pasos_por_refresco, pasos_restantes
 
 LOTE_MAXIMA = 200   # pasos entre consultas al reloj en modo "máxima"
 
@@ -32,20 +35,37 @@ class Simulador:
 
     def __init__(self, max_muestras=limites.MAX_MUESTRAS):
         self.motor = Motor(max_muestras)
+        horas = vsim.duracion_horas
+        self.duracion = None if horas is None else horas * 3600.0   # s simulados; fija por corrida
         self.panel = None
         self._acumulado = 0.0
         self._inicio_real = None
 
+    @property
+    def terminada(self):
+        """True cuando se completó la duración elegida."""
+        return pasos_restantes(self.motor.t, self.duracion, vhorno.DT) == 0
+
     # ---- un refresco: N pasos según la velocidad ---------------------
     def _avanzar_refresco(self, inicio, periodo):
+        restantes = pasos_restantes(self.motor.t, self.duracion, vhorno.DT)
+        if restantes == 0:
+            return
         factor = limites.VELOCIDADES.get(vsim.velocidad, 60)
         if factor is None:
             while time.monotonic() - inicio < periodo:
-                self.motor.avanzar(LOTE_MAXIMA)
+                lote = LOTE_MAXIMA if restantes is None else min(LOTE_MAXIMA, restantes)
+                self.motor.avanzar(lote)
+                if restantes is not None:
+                    restantes -= lote
+                    if restantes == 0:
+                        return
             return
         pasos, self._acumulado = pasos_por_refresco(
             factor, vhorno.DT, limites.REFRESCO_HZ, self._acumulado
         )
+        if restantes is not None:
+            pasos = min(pasos, restantes)
         self.motor.avanzar(pasos)
 
     # ---- bucle completo -------------------------------------------
@@ -64,6 +84,7 @@ class Simulador:
                     self.panel.actualizar(
                         historial.tiempos, historial.temperaturas,
                         historial.errores, self.motor.T, vhorno.T_SET,
+                        duracion=self.duracion,
                     )
                     if not self.panel.abierta:
                         break
@@ -86,6 +107,8 @@ class Simulador:
             velocidad=vsim.velocidad,
             t_real=time.monotonic() - self._inicio_real,
             metodo=NOMBRES_METODOS[m.metodo],
+            duracion=self.duracion,
+            terminada=self.terminada,
         )
 
     @staticmethod
@@ -94,7 +117,12 @@ class Simulador:
         time.sleep(max(0.0, periodo - transcurrido))
 
     def _finalizar(self, interrumpido):
-        motivo = "interrumpida por el usuario" if interrumpido else "ventana del monitor cerrada"
+        if self.terminada:
+            motivo = f"duración completada ({self.motor.t / 3600:g} h simuladas)"
+        elif interrumpido:
+            motivo = "interrumpida por el usuario"
+        else:
+            motivo = "ventana del monitor cerrada"
         marco.console.clear()
         marco.console.print(f"[{tema.C_AVISO}]Simulación detenida — {motivo}.[/]")
 

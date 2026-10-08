@@ -95,11 +95,11 @@ Este punto es el más importante para entender el código. **No hay objetos de c
   - **`B` es derivado:** `recalcular_B()` hace `B = (T_MAX_EQ − T_AMB)/TAU` ≈ 0,423 °C/s. Llámala siempre que cambies `T_AMB`, `TAU` o `T_MAX_EQ` (lo hacen el formulario y el `Motor`).
   - También guarda las listas del historial (`tiempos`, `temperaturas`, `errores`) y los flags de perturbación (`error_oscilante`, `flag_error`, `delta_T`).
 - `configuracion/parametros_pid.py` (alias `var`, `vpid`, `pid`): `KP=200`, `KI=10`, `KD=2`, `anti_windup="condicional"`, `restringir_integral=0.85` (factor del modo "recorte") y el estado interno del PID entre pasos (`error_prev`, `integral`, `derivada`, `proporcional`). `Motor` pone ese estado a cero al iniciar cada corrida.
-- `configuracion/parametros_simulacion.py` (alias `vsim`, `sim`): `velocidad="x60"` (clave de `limites.VELOCIDADES`) y `metodo="euler"` (clave de `numerico.integradores.METODOS`).
+- `configuracion/parametros_simulacion.py` (alias `vsim`, `sim`): `velocidad="x60"` (clave de `limites.VELOCIDADES`), `duracion_horas=2` (de `limites.DURACIONES_HORAS`; `None` = sin límite) y `metodo="euler"` (clave de `numerico.integradores.METODOS`).
 - `configuracion/parametros_electricos.py`: `angulo_conduccion` (no se usa en el bucle).
 - `configuracion/limites.py`: constantes **fijas** que el menú no edita:
   - control: `U_MAX=20000`, `UMBRAL_INTEGRAL=2000` (tope del modo "recorte");
-  - velocidad: `VELOCIDADES` (`None` = máxima), `REFRESCO_HZ=4`;
+  - velocidad y duración: `VELOCIDADES` (`None` = máxima), `DURACIONES_HORAS = (0.5, 1, 2, 4, 8, None)` y `REFRESCO_HZ=4`;
   - historial: `INTERVALO_MUESTREO=1.0` s simulado y `MAX_MUESTRAS` (`HORAS_HISTORIAL=12` h);
   - impulso: `TASA_IMPULSOS_HORA=6`, `DURACION_IMPULSO=3` s, `MAGNITUD_IMPULSO=80` °C;
   - colores y actuador: rango de color 30–1200 °C y `THETA_MIN/MAX`.
@@ -152,7 +152,8 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 - [simulacion/simulador.py](simulador_horno/simulacion/simulador.py), clase `Simulador`: el bucle visual.
   - En cada refresco (4 por segundo real) avanza N pasos del motor, actualiza la tabla y el panel y duerme el resto del periodo.
   - En modo **máxima** ejecuta lotes de `LOTE_MAXIMA` pasos durante todo el periodo y no duerme.
-  - La corrida termina al **cerrar la ventana Qt** (`panel.abierta == False`) o con **Ctrl+C**.
+  - **Duración:** `Simulador.duracion` (s simulados, fija por corrida) sale de `vsim.duracion_horas`. `reloj.pasos_restantes(t, duracion, dt)` limita los pasos de cada refresco, también en "máxima", así que la corrida se detiene **exactamente** en la duración. Con `terminada` en True el bucle **sigue refrescando sin avanzar**: el monitor responde, la tabla muestra "CORRIDA TERMINADA" y el eje X del panel abarca `[0, duración]` desde el inicio.
+  - Se vuelve al menú al **cerrar la ventana Qt** (`panel.abierta == False`) o con **Ctrl+C**.
 - [historial.py](simulador_horno/simulacion/historial.py): `Historial` envuelve las listas de `parametros_horno` (comparte referencia). Guarda **una muestra cada `INTERVALO_MUESTREO` s simulados** y recorta a `MAX_MUESTRAS`, así que el arranque completo se ve a cualquier velocidad.
 - El motor da ~1,3 millones de pasos por segundo real (~0,8 µs por paso). Por eso x600 es holgado y "máxima" simula decenas de horas en pocos segundos.
 
@@ -189,6 +190,8 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 | `test_fisica.py` | u = 1 converge a `T_MAX_EQ`; B se recalcula al cambiar T_AMB, TAU o T_MAX_EQ |
 | `test_control.py` | u ∈ [0, 1] en 4 h (con y sin perturbaciones); métricas de la corrida por defecto (sobrepaso < 5 %) |
 | `test_velocidad.py` | simulado/real = factor para cada velocidad y varios DT, sin `time.sleep` |
+| `test_duracion.py` | con el bucle real de `Simulador._avanzar_refresco`: cada velocidad se detiene exactamente en la duración y ya no avanza; x600 tarda los refrescos esperados; sin límite nunca termina |
+| `test_panel.py` | (Qt offscreen) la franja termina en el mismo minuto que las curvas; con duración el eje X abarca la corrida completa y el error queda alineado |
 | `test_historial.py` | conserva ≥ 4 h; una muestra por segundo simulado sea cual sea DT |
 | `test_perturbaciones.py` | la tasa de impulsos no cambia con DT (semilla fija); el signo es constante en el impulso y alterna entre impulsos |
 | `test_integradores.py` | cada método converge a `T_MAX_EQ`; Euler > Heun > RK4 en error; orden observado 1, 2 y 4 frente a la solución exacta; el motor usa el método elegido |
@@ -218,7 +221,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 5. La integral del primer paso usa `error_prev = 0` en el trapecio: suma media área del primer error. El efecto es despreciable. El *derivative kick* ya está resuelto con la derivada sobre la medición.
 6. `modelo/actuador.py` (ángulo de conducción) existe pero no está conectado, así que PyInstaller no lo incluye en el exe.
 7. El README menciona la Ley de Fourier, pero el modelo solo tiene pérdidas tipo Newton más la entrada de control.
-8. **Modo "máxima":** simula ~70 h en 3 s reales. Con un historial de 12 h, a los pocos segundos ya no se ve el arranque.
+8. **Modo "máxima" con duración "sin límite":** simula ~70 h en 3 s reales y, con un historial de 12 h, el arranque se pierde enseguida. Con cualquier duración finita, el comportamiento por defecto, ya no ocurre.
 
 ## Archivos fuera del paquete
 

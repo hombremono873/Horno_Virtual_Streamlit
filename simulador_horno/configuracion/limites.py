@@ -19,6 +19,11 @@ VELOCIDADES = {
     "máxima": None,
 }
 
+# --- Duración de la corrida -------------------------------------
+# Horas SIMULADAS tras las que la corrida se detiene sola (las gráficas
+# quedan a la vista). None = sin límite: corre hasta cerrar el monitor.
+DURACIONES_HORAS = (0.5, 1, 2, 4, 8, None)
+
 # --- Simulación ------------------------------------------------
 REFRESCO_HZ = 4            # refrescos por segundo real de la tabla rich y las gráficas
 INTERVALO_MUESTREO = 1.0   # segundos SIMULADOS entre muestras del historial

@@ -46,14 +46,17 @@ def _barra(valor, minimo, maximo, ancho=32, color=tema.C_ACENTO):
     return barra
 
 
-def generar_tabla(t, T, T_set, u, error, pid, horno, acciones, velocidad, t_real, metodo):
+def generar_tabla(t, T, T_set, u, error, pid, horno, acciones, velocidad, t_real, metodo,
+                  duracion=None, terminada=False):
+    """``duracion``: segundos simulados de la corrida (None = sin límite)."""
     # -- reloj: tiempo simulado vs. real ------------------------------
     reloj = Table.grid(padding=(0, 2))
     for _ in range(6):
         reloj.add_column()
+    simulado = formato_hms(t) if duracion is None else f"{formato_hms(t)} / {formato_hms(duracion)}"
     reloj.add_row(
         Text("Tiempo simulado", style=tema.C_TENUE),
-        Text(formato_hms(t), style=tema.C_TITULO),
+        Text(simulado, style=tema.C_TITULO),
         Text("Velocidad", style=tema.C_TENUE),
         Text(velocidad, style=f"reverse {tema.C_ACENTO}"),
         Text("Tiempo real", style=tema.C_TENUE),
@@ -101,11 +104,19 @@ def generar_tabla(t, T, T_set, u, error, pid, horno, acciones, velocidad, t_real
     cfg.add_row("Método numérico", metodo)
     cfg.add_row("Δt (paso)", f"{horno.get('dt', 0.1):g} s")
 
-    ayuda = Text("Cierra la ventana del monitor o pulsa Ctrl+C para detener.",
-                 style=tema.C_TENUE, justify="center")
+    if terminada:
+        ayuda = Text("Analiza las gráficas. Cierra la ventana del monitor o pulsa Ctrl+C "
+                     "para volver al menú.", style=tema.C_TENUE, justify="center")
+        aviso = Text(f"✓ CORRIDA TERMINADA · {formato_hms(duracion)} simuladas",
+                     style=f"reverse {tema.C_OK}", justify="center")
+    else:
+        ayuda = Text("Cierra la ventana del monitor o pulsa Ctrl+C para detener.",
+                     style=tema.C_TENUE, justify="center")
+        aviso = Text()
 
     cuerpo = Group(
         Align.center(reloj),
+        Align.center(aviso),
         Text(),
         Align.center(estado),
         Text(),
