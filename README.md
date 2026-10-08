@@ -119,7 +119,8 @@ simulador/
     │
     ├── numerico/               # ¿CON QUÉ MÉTODO NUMÉRICO?
     │   ├── integradores.py          #   Euler, Heun (RK2) y Runge-Kutta 4 (elegibles en el menú)
-    │   └── comparacion.py           #   comparación con la solución exacta y orden de convergencia
+    │   ├── comparacion.py           #   comparación con la solución exacta y orden de convergencia
+    │   └── estabilidad.py           #   factor de amplificación y límites de estabilidad
     │
     ├── simulacion/             # ¿QUIÉN COORDINA?
     │   ├── motor.py                 #   clase Motor: lógica de cada paso, sin E/S
@@ -194,6 +195,19 @@ compara con la solución analítica `T(t) = T_eq + (T0 − T_eq)·e^(−t/τ)`:
   convergencia observado** (≈ 1, 2 y 4) y el costo en evaluaciones de dT/dt;
 - en una ventana, las curvas frente a la exacta, el error en el tiempo y la
   gráfica log-log de convergencia, donde la pendiente de cada recta es el orden.
+
+**"Estabilidad con Δt grande"** muestra que un método puede fallar aunque la física
+sea estable. Con la potencia apagada el horno se enfría desde el setpoint; cada
+método multiplica la desviación (T − T_AMB) por un factor R en cada paso:
+
+| Δt | Euler | Heun (RK2) | Runge-Kutta 4 |
+|----|-------|------------|---------------|
+| 0,5·τ | estable | estable | estable |
+| 1,5·τ | **oscila** (R = −0,5) | estable | estable |
+| 2,5·τ | **diverge** (llega a −7000 °C) | **diverge** | estable |
+| 3·τ | diverge | diverge | **diverge** |
+
+Límites teóricos: Euler y Heun son estables con Δt < 2τ; RK4, con Δt < ~2,785τ.
 
 **Simulación (opción 8)**
 

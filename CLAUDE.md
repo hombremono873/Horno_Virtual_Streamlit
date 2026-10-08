@@ -49,7 +49,8 @@ simulador_horno/
 ├── modelo/           # ¿qué se simula?        horno (ecuación + Euler), perturbaciones, actuador
 ├── control/          # ¿quién controla?       pid, anti_windup, escalado, senal_error
 ├── numerico/         # ¿con qué método?       integradores (Euler, Heun, RK4 elegibles; tabla METODOS),
-│                     #                        comparacion (vs. solución exacta, orden de convergencia)
+│                     #                        comparacion (vs. solución exacta, orden de convergencia),
+│                     #                        estabilidad (factor de amplificación, límites de Δt)
 ├── simulacion/       # ¿quién coordina?       motor (lógica), reloj (velocidad), historial, simulador (visual)
 ├── interfaz/         # ¿qué ve el usuario?    consola/, graficas/, alarmas/
 └── estilos/          # ¿cómo se ve?           tema (paleta y medidas)
@@ -119,6 +120,8 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 
 **Comparación con la solución exacta** ([numerico/comparacion.py](simulador_horno/numerico/comparacion.py), sin E/S): `comparar()` integra a potencia plena (u = 1) desde `T_AMB` durante `HORIZONTE = 3600` s con cada método y cada Δt de `DTS_COMPARACION = (240, 120, 60, 30, 15)`. Devuelve un `ResultadoComparacion` con las `Trayectoria` (tiempos, temperaturas, errores, `error_maximo`, `evaluaciones`) y los órdenes observados `log(e1/e2)/log(dt1/dt2)`. Como los integradores leen `parametros_horno.DT`, `integrar()` lo cambia temporalmente y **siempre lo restaura** en un `finally`. La interfaz lo presenta con `interfaz/consola/comparacion.py` (tablas rich) e `interfaz/graficas/comparacion.py` (`VentanaComparacion`). Se accede desde el submenú de la opción 7, en la entrada "Comparar con la solución exacta".
 
+**Estabilidad con Δt grande** ([numerico/estabilidad.py](simulador_horno/numerico/estabilidad.py), sin E/S): el horno se enfría desde `T_SET` con u = 0, que es la ecuación de prueba `y' = λy` con λ = −1/TAU. `factor_amplificacion(metodo, dt)` da R(z) con z = −Δt/TAU: Euler `1+z`, Heun `1+z+z²/2` y RK4, la serie de e^z hasta z⁴. `limite_estabilidad` busca por bisección el Δt con |R| = 1: 2τ para Euler y Heun, ~2,785τ para RK4. `estudiar()` integra con Δt = `FRACCIONES_TAU` (0,5; 1,5; 2,5; 3)·τ, elegidos para mostrar los cuatro casos: todos estables, Euler oscila, Euler y Heun divergen con RK4 estable, y todos divergen. Reutiliza `comparacion.integrar` con `T0` y `u=0`. Interfaz: `interfaz/consola/estabilidad.py` y `interfaz/graficas/estabilidad.py` (`VentanaEstabilidad`, rejilla 2×2 con el eje Y acotado para que las divergencias salgan del cuadro). Se accede desde la entrada "Estabilidad con Δt grande" del submenú de la opción 7.
+
 **Error** ([control/senal_error.py](simulador_horno/control/senal_error.py)): `error = T_SET − T`, más perturbaciones opcionales:
 - `error_oscilante` (opción 3 del menú): `get_ruido(t) = 20·sin(0.05·t) + U(−0.5, 1.5)`.
 - `flag_error` (opción 4): `perturbacion_total(t, dt, tasa_hora, duracion, magnitud)`, que suma ruido, senoide y un impulso ([modelo/perturbaciones.py](simulador_horno/modelo/perturbaciones.py)).
@@ -162,7 +165,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 - [formularios.py](simulador_horno/interfaz/consola/formularios.py) escribe directamente en los módulos de `configuracion/`. Contiene:
   - los conmutadores de perturbación (`_conmutar`);
   - `configurar_horno`, que pide `T_MAX_EQ` (no B), valida que `T_MAX_EQ > T_AMB`, `TAU > 0` y `DT > 0`, y llama a `recalcular_B`;
-  - `configurar_velocidad` y `configurar_metodo`, submenús con `menu_interactivo` cuyo último ítem es "Volver". El de método incluye "Comparar con la solución exacta", que llama a `comparar_metodos()`.
+  - `configurar_velocidad` y `configurar_metodo`, submenús con `menu_interactivo` cuyo último ítem es "Volver". El de método incluye "Comparar con la solución exacta" (`comparar_metodos()`) y "Estabilidad con Δt grande" (`estudiar_estabilidad()`).
 - [tabla_vivo.py](simulador_horno/interfaz/consola/tabla_vivo.py): `generar_tabla(t, T, T_set, u, error, pid, horno, acciones, velocidad, t_real)` construye el panel de rich. Muestra el reloj (tiempo simulado en hh:mm:ss, velocidad y tiempo real), las lecturas, las barras (u en [0, 1]), los términos P/I/D y la configuración.
 - [interfaz/graficas/panel.py](simulador_horno/interfaz/graficas/panel.py): `PanelGraficas` es una única ventana `GraphicsLayoutWidget`.
   - Tiene cuatro vistas: temperatura frente al tiempo con la línea del setpoint, error frente al tiempo, el corte del horno coloreado por T (colorimetría) y la franja histórica de color, más una barra de escala en °C.
@@ -187,6 +190,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 | `test_perturbaciones.py` | la tasa de impulsos no cambia con DT (semilla fija); el signo es constante en el impulso y alterna entre impulsos |
 | `test_integradores.py` | cada método converge a `T_MAX_EQ`; Euler > Heun > RK4 en error; orden observado 1, 2 y 4 frente a la solución exacta; el motor usa el método elegido |
 | `test_comparacion.py` | orden observado ≈ teórico para cada Δt; más orden, menos error; el costo en evaluaciones; Δt del usuario restaurado incluso si falla |
+| `test_estabilidad.py` | factores R teóricos; límites 2τ, 2τ y 2,785τ; el código real amplifica exactamente por R; el comportamiento observado coincide con el veredicto |
 | `test_capas.py` | `motor` y `reloj` no importan rich, PySide6 ni pyqtgraph |
 
 ## Cómo añadir cosas

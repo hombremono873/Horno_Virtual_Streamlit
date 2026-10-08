@@ -62,15 +62,15 @@ class ResultadoComparacion:
         return self.trayectorias[(metodo, dt)].error_maximo
 
 
-def integrar(metodo, dt, horizonte=HORIZONTE, u=U_CONSTANTE):
-    """Integra con ``metodo`` y paso ``dt`` desde T_AMB hasta ``horizonte``.
+def integrar(metodo, dt, horizonte=HORIZONTE, u=U_CONSTANTE, T0=None):
+    """Integra con ``metodo`` y paso ``dt`` desde ``T0`` (por defecto T_AMB) hasta ``horizonte``.
 
     Los métodos leen ``parametros_horno.DT``: se cambia solo durante la
     integración y se restaura siempre al terminar.
     """
     paso = METODOS[metodo]
     dt_usuario = vhorno.DT
-    T0 = vhorno.T_AMB
+    T0 = vhorno.T_AMB if T0 is None else T0
     tray = Trayectoria(metodo, dt, [0.0], [T0], [0.0])
     try:
         vhorno.DT = dt

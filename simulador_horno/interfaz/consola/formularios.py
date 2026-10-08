@@ -13,8 +13,11 @@ from simulador_horno.configuracion import parametros_pid as pid
 from simulador_horno.configuracion import parametros_simulacion as sim
 from simulador_horno.interfaz.consola import marco
 from simulador_horno.interfaz.consola.comparacion import resumen_comparacion
+from simulador_horno.interfaz.consola.estabilidad import resumen_estabilidad
 from simulador_horno.interfaz.graficas.comparacion import VentanaComparacion
+from simulador_horno.interfaz.graficas.estabilidad import VentanaEstabilidad
 from simulador_horno.numerico.comparacion import DTS_COMPARACION, HORIZONTE, comparar
+from simulador_horno.numerico.estabilidad import FRACCIONES_TAU, estudiar
 from simulador_horno.numerico.integradores import METODOS, NOMBRES as NOMBRES_METODOS
 
 console = marco.console
@@ -191,6 +194,9 @@ def configurar_metodo():
     clave_comparar = str(len(items) + 1)
     items.append((clave_comparar, "Comparar con la solución exacta",
                   "Error y orden de convergencia de los tres métodos"))
+    clave_estabilidad = str(len(items) + 1)
+    items.append((clave_estabilidad, "Estabilidad con Δt grande",
+                  "Cuándo cada método oscila o diverge"))
     items.append((str(len(items) + 1), "Volver", "Conservar el método actual"))
     eleccion = marco.menu_interactivo(
         "MÉTODO NUMÉRICO", items, migas=["Método numérico"],
@@ -198,6 +204,9 @@ def configurar_metodo():
     )
     if eleccion == clave_comparar:
         comparar_metodos()
+        return
+    if eleccion == clave_estabilidad:
+        estudiar_estabilidad()
         return
     indice = int(eleccion) - 1
     if indice < len(claves):
@@ -223,3 +232,21 @@ def comparar_metodos():
     resultado = comparar()
     console.print(resumen_comparacion(resultado))
     VentanaComparacion(resultado).mostrar_y_esperar()
+
+
+_AYUDA_ESTABILIDAD = Text.from_markup(
+    "Se apaga la potencia (u = 0) y el horno se enfría desde T_SET hacia T_AMB.\n"
+    "La física es estable para cualquier Δt, pero los métodos no: con Δt grandes\n"
+    "pueden oscilar o divergir. Se prueba con Δt = "
+    f"{', '.join(f'{f:g}' for f in FRACCIONES_TAU)} veces τ.\n\n"
+    "Las gráficas se abren en otra ventana; ciérrala para volver al menú."
+)
+
+
+def estudiar_estabilidad():
+    """Estabilidad de Euler, Heun y RK4 con Δt grandes: tabla + gráficas."""
+    marco.cabecera_seccion("ESTABILIDAD CON Δt GRANDE", _AYUDA_ESTABILIDAD,
+                           migas=["Método numérico", "Estabilidad"])
+    resultado = estudiar()
+    console.print(resumen_estabilidad(resultado))
+    VentanaEstabilidad(resultado).mostrar_y_esperar()
