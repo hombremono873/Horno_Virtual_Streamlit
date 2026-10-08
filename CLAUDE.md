@@ -60,6 +60,8 @@ No hay objetos de configuración: los parámetros son variables de módulo que e
 - **Dependencia:** fija la versión en `requirements.txt`. Si PyInstaller no la detecta, añádela a `main.spec` (`hiddenimports` o `datas`; `readchar` usa `copy_metadata` y `pyqtgraph` `collect_data_files`).
 
 ## Pruebas (`tests/`, `pytest.ini` con `pythonpath = .`)
+GitHub Actions (`.github/workflows/pruebas.yml`) las corre en cada push (Windows, Python 3.13, `QT_QPA_PLATFORM=offscreen`). Las pruebas nuevas no deben necesitar pantalla ni escribir fuera de `tmp_path`.
+
 física · control (métricas por defecto: sobrepaso 0,54 %, t90 58 min, establecimiento 71 min) · velocidad · duración (bucle real de `Simulador`) · historial · perturbaciones (tasa independiente de DT) · integradores y comparación (orden 1/2/4) · estabilidad (límites 2τ y 2,785τ; el código amplifica exactamente por R) · anti_windup · derivada · métricas (contra fórmulas de primer orden) · resultados (ida y vuelta del CSV) · arranque · panel (Qt offscreen) · capas.
 
 ## Deuda técnica conocida

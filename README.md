@@ -1,5 +1,7 @@
 # Simulador de Horno Eléctrico con Control PID
 
+[![Pruebas](https://github.com/hombremono873/Hornovirtual_2026/actions/workflows/pruebas.yml/badge.svg)](https://github.com/hombremono873/Hornovirtual_2026/actions/workflows/pruebas.yml)
+
 **Universidad de Antioquia – Facultad de Ingeniería**  
 **Autor:** Omar Alberto Torres  
 **Docente:** Yony Ceballos  
@@ -136,7 +138,7 @@ python -m venv .venv
 pip install -r requirements.txt                          # ejecutar
 pip install -r requirements.txt -r requirements-dev.txt  # + PyInstaller y pytest
 python main.py                                           # desde la carpeta simulador/
-python -m pytest                                         # pruebas automáticas
+python -m pytest                                         # pruebas automáticas (también corren en GitHub Actions en cada push)
 pyinstaller main.spec --noconfirm --clean                # regenerar dist\main.exe
 ```
 

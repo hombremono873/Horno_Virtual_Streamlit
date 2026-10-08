@@ -1,0 +1,28 @@
+# Corre las pruebas automáticas (pytest) en cada push y pull request.
+# Windows + Python 3.13, igual que el entorno de desarrollo. Las pruebas no
+# necesitan pantalla: Qt se usa en modo offscreen.
+name: Pruebas
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: windows-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt pytest==9.1.1
+
+      - name: Ejecutar pruebas
+        run: python -m pytest -q
