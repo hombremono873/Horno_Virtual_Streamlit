@@ -1,0 +1,24 @@
+{
+  "sha256": "ba14b406983a355b1e65bcf540e4cac34acdc88ce20f731c2627169eca917dc1",
+  "muestras": 7200,
+  "t_final": 7200.000000008662,
+  "T_final": 946.3473275648029,
+  "u_final": 0.7293205258365184,
+  "error_final": 53.65300210419434,
+  "impulsos": 0,
+  "aperturas": 0,
+  "metricas": {
+    "T0": 30.0,
+    "T_set": 1000.0,
+    "duracion": 7199.000000008658,
+    "sobrepaso_c": 0.0,
+    "sobrepaso_pct": 0.0,
+    "t10": 238.9999999999907,
+    "t90": 3489.099999997922,
+    "t_subida": 3250.0999999979313,
+    "t_establecimiento": null,
+    "error_final": 53.65495213493659,
+    "iae": 1781846.3909404322,
+    "ise": 937516358.8921043
+  }
+}
