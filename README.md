@@ -7,254 +7,168 @@
 
 ---
 
-##  Contexto del Proyecto
+## Contexto del proyecto
 
-Este trabajo presenta la implementación de un **simulador computacional de un horno con regulación PID**. El objetivo es integrar conceptos de **transferencia de calor, modelado matemático y control de procesos**, mediante la aplicación de los conceptos relacionados con los conceptos de **métodos numéricos** aprendidos durante el semestre en la asignatura de métodos numéricos.  
+Este trabajo implementa un **simulador computacional de un horno eléctrico con regulación PID**. Integra conceptos de **transferencia de calor, modelado matemático y control de procesos** con los **métodos numéricos** estudiados en la asignatura de Métodos Numéricos.
 
-El proyecto permite analizar de forma numérica y visual el comportamiento dinámico del sistema, además de explorar la robustez del controlador PID frente a perturbaciones externas.  
-
----
-
-##  Estructura del Proyecto
-
-El proyecto está compuesto por los siguientes elementos:
-
-- **Código fuente en Python** desarrollado en *Visual Studio Code*.   
-- **Archivo `requirements.txt`**: lista todas las librerías necesarias para crear un entorno virtual y ejecutar correctamente el simulador. 
-- **Ejecutable `main.exe`**: versión compilada del proyecto que permite al usuario ejecutar la aplicación directamente, sin necesidad de crear un entorno virtual, librerías y dependencias.  
+El simulador permite analizar de forma numérica y visual el comportamiento dinámico del horno, comparar métodos de integración, estudiar su estabilidad y explorar la robustez del controlador PID frente a perturbaciones.
 
 ---
 
-##  Dependencias del Proyecto
+## Inicio rápido
 
-El entorno de ejecución requiere las siguientes librerías principales (incluidas en `requirements.txt`):  
-
-- `rich` — interfaz de consola  
-- `readchar` — navegación por teclado directo  
-- `pyqtgraph` + `PySide6` — monitor gráfico en tiempo real  
-- `numpy` — cálculo de la franja térmica  
-
-> Requiere un entorno de escritorio (Qt). No funciona en sesiones sin interfaz gráfica.
-
-Para instalar las dependencias en un entorno virtual:
-
-```bash
-pip install -r requirements.txt
-```
-
-Para empaquetar el ejecutable se necesita además `requirements-dev.txt` (PyInstaller).
-
-## Ejecución del Proyecto
-
-### Opción 1: Ejecutar desde código fuente
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate          # Windows
-pip install -r requirements.txt
-python main.py                  # ejecutar desde la carpeta simulador/
-```
-
-### Opción 2: Ejecutable
-
-Ejecutar directamente `dist\main.exe` (no requiere entorno ni dependencias).
-
-Para regenerarlo tras cambios en el código:
-
-```bash
-pip install -r requirements-dev.txt
-pyinstaller main.spec --noconfirm --clean
-```
+1. Ejecuta `dist\main.exe`. No requiere instalar nada; solo un escritorio de Windows.
+2. Pulsa **8** (Ejecutar simulación). Con la configuración por defecto la corrida dura 2 h simuladas, unos **2 minutos reales**.
+3. Observa el monitor: temperatura, error y color del horno. Al terminar aparece **"CORRIDA TERMINADA"**.
+4. Cierra el monitor. La consola muestra las **métricas de desempeño** y la ruta del archivo `.csv` con los resultados.
 
 ---
 
-# Explicación compacta del código
-
-- **Modelo térmico**  
-  El horno se representa como un **sistema de primer orden**, aplicando la **Ley de Fourier** (conducción) y la **Ley de Enfriamiento de Newton** (pérdidas al ambiente):  
-  `dT/dt = (T_AMB − T)/τ + B·u`, con `u ∈ [0, 1]` (un horno no enfría activamente).  
-  La ganancia `B = (T_MAX_EQ − T_AMB)/τ` se deriva de la temperatura de equilibrio a potencia plena (1300 °C por defecto), lo que da un calentamiento máximo realista de ~0,42 °C/s.  
-  La temperatura se actualiza en cada paso de tiempo con el método numérico elegido en el menú: **Euler** (por defecto), **Heun (RK2)** o **Runge-Kutta 4**, lo que permite comparar su precisión sobre el mismo modelo.
-
-- **Algoritmo PID**  
-  El controlador PID ajusta la energía suministrada al horno según:  
-  - **Proporcional (Kp):** responde al error instantáneo.  
-  - **Integral (Ki):** corrige el error acumulado en el tiempo.  
-  - **Derivativa (Kd):** anticipa cambios bruscos y estabiliza la respuesta.  
-
-  La combinación de estas tres acciones permite que la temperatura alcance el setpoint con **mínimo error en estado estacionario**, controlando el **sobreimpulso** y la **estabilidad** incluso bajo perturbaciones externas.
----
-# Estructura de archivos del proyecto
-
-```text
-simulador/
-├── main.py                     # punto de entrada (llama a simulador_horno.app.ejecutar)
-├── main.spec                   # configuración de PyInstaller
-├── requirements.txt            # dependencias de ejecución
-├── requirements-dev.txt        # PyInstaller (empaquetado)
-├── CLAUDE.md                   # guía técnica del código
-├── pytest.ini  tests/          # pruebas automáticas (python -m pytest)
-├── README.md
-├── dist/  build/               # artefactos de compilación (main.exe)
-└── simulador_horno/            # paquete de la aplicación
-    ├── app.py                  # bienvenida + bucle del menú (despacho por tabla)
-    │
-    ├── configuracion/          # ¿CON QUÉ PARÁMETROS?
-    │   ├── parametros_horno.py      #   valores del horno (editables desde el menú)
-    │   ├── parametros_pid.py        #   ganancias y estado del PID
-    │   ├── parametros_electricos.py #   ángulo de conducción
-    │   ├── parametros_simulacion.py #   velocidad elegida (x1 … máxima)
-    │   └── limites.py               #   constantes fijas (velocidades, muestreo, impulsos…)
-    │
-    ├── modelo/                 # ¿QUÉ SE SIMULA?
-    │   ├── horno.py                 #   ecuación térmica + paso de Euler
-    │   ├── perturbaciones.py        #   ruido, senoide e impulsos
-    │   └── actuador.py              #   ángulo de conducción
-    │
-    ├── control/                # ¿QUIÉN CONTROLA?
-    │   ├── pid.py                   #   controlador PID
-    │   ├── anti_windup.py           #   recorte del término integral
-    │   ├── escalado.py              #   saturación de la señal de control
-    │   └── senal_error.py           #   error = setpoint − T (+ perturbaciones)
-    │
-    ├── numerico/               # ¿CON QUÉ MÉTODO NUMÉRICO?
-    │   ├── integradores.py          #   Euler, Heun (RK2) y Runge-Kutta 4 (elegibles en el menú)
-    │   ├── comparacion.py           #   comparación con la solución exacta y orden de convergencia
-    │   └── estabilidad.py           #   factor de amplificación y límites de estabilidad
-    │
-    ├── simulacion/             # ¿QUIÉN COORDINA?
-    │   ├── motor.py                 #   clase Motor: lógica de cada paso, sin E/S
-    │   ├── reloj.py                 #   pasos por refresco según la velocidad
-    │   ├── historial.py             #   una muestra por segundo simulado
-    │   └── simulador.py             #   clase Simulador: bucle visual (motor + pantalla)
-    │
-    ├── interfaz/               # ¿QUÉ VE EL USUARIO?
-    │   ├── consola/                 #   marco, bienvenida, menú, formularios, tabla en vivo (rich)
-    │   ├── graficas/                #   panel.py — monitor en tiempo real (pyqtgraph + PySide6)
-    │   └── alarmas/                 #   sonora.py (beep de impulso)
-    │
-    └── estilos/                # ¿CÓMO SE VE?
-        └── tema.py                  #   paleta y medidas (consola + gráficas)
-```
-
----
-# Controles
-
-**Menú (consola)**
-
-| Tecla | Acción |
-|-------|--------|
-| `↑` `↓` | Moverse entre opciones |
-| `Enter` | Elegir la opción resaltada |
-| `1`–`9` | Acceso directo a una opción |
-| `Q` / `Esc` | Salir |
-
-En los formularios, `Enter` sin escribir nada conserva el valor actual (se muestra entre paréntesis).
-
-**Opciones del menú**
+## Opciones del menú
 
 | Opción | Qué hace |
 |--------|----------|
 | `1` Configurar PID | Ganancias Kp, Ki, Kd |
-| `2` Configurar horno | T ambiente, setpoint, T máx. de equilibrio, T inicial (arranque en frío o en caliente), τ, Δt |
-| `3` Error oscilante | Ruido + senoide sobre el error |
-| `4` Error de impulso | Impulsos térmicos aleatorios (~6 por hora simulada) |
-| `5` Anti-windup | Ninguno, recorte de la integral o integración condicional (por defecto) |
-| `6` Velocidad y duración | x1, x10, x60 (por defecto), x600 o máxima; duración de 30 min a 8 h (2 h por defecto) o sin límite |
-| `7` Método numérico | Euler (por defecto), Heun (RK2) o Runge-Kutta 4 |
-| `8` Ejecutar simulación | Abre el monitor en tiempo real |
+| `2` Configurar horno | T ambiente, setpoint, T máx. de equilibrio, **T inicial** (arranque en frío o en caliente), τ, Δt |
+| `3` Error oscilante | Activa ruido + senoide sobre el error |
+| `4` Error de impulso | Activa impulsos aleatorios (~6 por hora simulada) |
+| `5` Anti-windup | Ninguno, recorte de la integral o **integración condicional** (por defecto) |
+| `6` Velocidad y duración | x1, x10, **x60**, x600 o máxima · 30 min a 8 h (**2 h**) o sin límite |
+| `7` Método numérico | **Euler**, Heun (RK2) o Runge-Kutta 4 · comparación con la solución exacta · estabilidad |
+| `8` Ejecutar simulación | Abre el monitor y corre la simulación |
 | `9` Salir | Cierra el simulador |
 
-**Velocidad y duración (opción 6)**
+**Teclas:** `↑` `↓` para moverse, `Enter` para elegir, `1`–`9` para acceso directo y `Q` / `Esc` para salir. En los formularios, `Enter` sin escribir nada conserva el valor actual (entre paréntesis). Los decimales se escriben con **punto** (`0.5`).
 
-El horno real tarda más de una hora en llegar a 1000 °C. La velocidad comprime
-el tiempo de **ejecución**, no la física: con x60 cada segundo real equivale a un
-minuto simulado y la subida completa se ve en poco más de un minuto. El paso de
-integración `Δt` y los resultados son los mismos a cualquier velocidad.
+---
 
-Después de la velocidad se elige la **duración**: 30 min, 1 h, **2 h (por defecto)**,
-4 h, 8 h o sin límite, en horas simuladas. Al completarla la corrida se detiene
-sola y el monitor queda abierto, con el aviso "CORRIDA TERMINADA", para analizar
-las gráficas; se vuelve al menú cerrando el monitor o con `Ctrl+C`. El eje de
-tiempo abarca la duración completa desde el inicio. Con la configuración por
-defecto el horno llega al setpoint hacia el minuto 74, así que 2 h muestran la
-subida, la llegada y la estabilización (a x60, unos 2 minutos reales).
+## Experimentos sugeridos
 
-**Método numérico (opción 7)**
+| Experimento | Cómo | Qué se observa |
+|---|---|---|
+| **Windup** | Opción 5: *Ninguno* → ejecutar; luego *Integración condicional* → ejecutar | Sin anti-windup el horno se pasa ~280 °C; con él llega limpio a 1000 °C |
+| **Límite del recorte** | Opción 1: Ki = 2; opción 5: *Recorte* → ejecutar; repetir con *Integración condicional* | Con recorte el horno no llega al setpoint; con integración condicional sí |
+| **Orden de los métodos** | Opción 7 → *Comparar con la solución exacta* | Orden observado ≈ 1 (Euler), 2 (Heun) y 4 (RK4) |
+| **Estabilidad numérica** | Opción 7 → *Estabilidad con Δt grande* | Con Δt > 2τ Euler diverge aunque la física sea estable |
+| **Métodos en la simulación** | Opción 2: Δt = 30 s; opción 7: Euler y luego RK4 | Euler se aparta de RK4 con pasos grandes |
+| **Arranque en caliente** | Opción 2: T inicial = 600 (o 1200) | Llega antes; desde 1200 °C el PID apaga la potencia y el horno se enfría |
+| **Perturbaciones** | Opciones 3 y 4 | El PID corrige ruido e impulsos alrededor del setpoint |
 
-Elige con qué método se resuelve en cada paso la ecuación del horno,
-`dT/dt = (T_AMB − T)/τ + B·u`:
+Para comparar dos corridas, cambia **una sola cosa** a la vez y usa la **misma duración**.
 
-| Método | Orden | Evaluaciones por paso |
-|--------|-------|-----------------------|
-| Euler | 1 | 1 |
-| Heun (RK2) | 2 | 2 |
-| Runge-Kutta 4 | 4 | 4 |
+---
 
-Un método de orden p reduce su error unas 2^p veces al dividir Δt a la mitad.
-Con el Δt por defecto (0,1 s) las curvas son casi idénticas; para ver la
-diferencia, aumenta Δt en la opción 2 (por ejemplo a 30 s) y compara.
+## Velocidad y duración (opción 6)
 
-Dentro de esta opción, **"Comparar con la solución exacta"** integra la ecuación
-a potencia plena con los tres métodos y Δt = 240, 120, 60, 30 y 15 s, y la
-compara con la solución analítica `T(t) = T_eq + (T0 − T_eq)·e^(−t/τ)`:
+El horno real tarda más de una hora en llegar a 1000 °C. La **velocidad** comprime el tiempo de **ejecución**, no la física: con x60 cada segundo real equivale a un minuto simulado. El paso `Δt` y los resultados son los mismos a cualquier velocidad.
 
-- en la consola, una tabla con el error máximo de cada método, el **orden de
-  convergencia observado** (≈ 1, 2 y 4) y el costo en evaluaciones de dT/dt;
-- en una ventana, las curvas frente a la exacta, el error en el tiempo y la
-  gráfica log-log de convergencia, donde la pendiente de cada recta es el orden.
+La **duración** son las horas **simuladas** tras las que la corrida se detiene sola, dejando las gráficas a la vista. Con la configuración por defecto el horno llega al setpoint hacia el minuto 74, así que **2 h** muestran la subida, la llegada y la estabilización.
 
-**"Estabilidad con Δt grande"** muestra que un método puede fallar aunque la física
-sea estable. Con la potencia apagada el horno se enfría desde el setpoint; cada
-método multiplica la desviación (T − T_AMB) por un factor R en cada paso:
+---
 
-| Δt | Euler | Heun (RK2) | Runge-Kutta 4 |
-|----|-------|------------|---------------|
-| 0,5·τ | estable | estable | estable |
-| 1,5·τ | **oscila** (R = −0,5) | estable | estable |
-| 2,5·τ | **diverge** (llega a −7000 °C) | **diverge** | estable |
-| 3·τ | diverge | diverge | **diverge** |
+## Método numérico (opción 7)
 
-Límites teóricos: Euler y Heun son estables con Δt < 2τ; RK4, con Δt < ~2,785τ.
+Elige con qué método se resuelve en cada paso la ecuación del horno, `dT/dt = (T_AMB − T)/τ + B·u`:
 
-**Simulación (opción 8)**
+| Método | Orden | Evaluaciones de dT/dt por paso | Estable si |
+|--------|-------|-------------------------------|------------|
+| Euler | 1 | 1 | Δt < 2τ |
+| Heun (RK2) | 2 | 2 | Δt < 2τ |
+| Runge-Kutta 4 | 4 | 4 | Δt < ~2,785τ |
 
-- Se abre el **monitor**: temperatura, error y franja térmica en una sola ventana,
-  con el tiempo en minutos simulados.
-- La consola muestra el tiempo simulado (hh:mm:ss), la velocidad activa y el tiempo real.
-- Para detener: cerrar la ventana del monitor **o** pulsar `Ctrl+C` en la consola.
-- **Métricas de desempeño:** al terminar la corrida, la consola muestra
-  sobrepaso (% y °C), tiempo de subida (10→90 %), tiempo al 90 %, tiempo de
-  establecimiento (±1 %), error final e integrales del error IAE e ISE. Se
-  calculan sobre la temperatura real del horno y quedan en pantalla hasta
-  pulsar una tecla; si la corrida se detiene antes, se muestran como
-  "corrida incompleta".
-- **Resultados en archivo:** cada corrida se guarda automáticamente en la
-  carpeta `resultados/` (junto a `main.exe`, o en `simulador/` si se ejecuta
-  desde el código), con un nombre como
-  `2026-10-08_143015_rk4_dt0,1_condicional.csv` (fecha, método, Δt y
-  anti-windup). Se abre directamente en Excel: usa `;` como separador y coma
-  decimal. Las primeras líneas (`#`) guardan la configuración y las métricas;
-  después hay una fila por segundo simulado con `t_s`, `T_C` (temperatura
-  real), `T_set_C`, `error_C` (error que vio el controlador) y `u`.
+Un método de orden p reduce su error unas 2^p veces al dividir Δt a la mitad. Con el Δt por defecto (0,1 s) las curvas son casi idénticas.
 
-**Pruebas automáticas**
+- **Comparar con la solución exacta:** integra a potencia plena con Δt = 240, 120, 60, 30 y 15 s y compara con `T(t) = T_eq + (T0 − T_eq)·e^(−t/τ)`. Muestra una tabla de errores y órdenes observados, otra de costo frente a precisión, y una gráfica log-log cuya pendiente es el orden de cada método.
+- **Estabilidad con Δt grande:** con la potencia apagada, cada método multiplica la desviación (T − T_AMB) por un factor R en cada paso. Con |R| > 1 diverge; por ejemplo, Euler con Δt = 2,5τ predice −7336 °C. **Solo Euler oscila**: Heun y RK4 tienen R > 0 y, cuando fallan, divergen sin oscilar.
+
+---
+
+## Métricas de desempeño
+
+Al terminar cada corrida (o al detenerla, como "corrida incompleta") la consola muestra estas métricas, calculadas sobre la **temperatura real** del horno:
+
+| Métrica | Significado |
+|---|---|
+| **Sobrepaso** | Cuánto se pasa del setpoint, en °C y en % del salto. Si el horno arranca por encima del setpoint, se mide por debajo |
+| **Tiempo de subida** | Tiempo entre el 10 % y el 90 % del salto |
+| **Tiempo al 90 %** | Cuándo recorre el 90 % del salto |
+| **Establecimiento** | Desde cuándo la temperatura queda siempre dentro de ±1 % del salto |
+| **Error final** | Setpoint − temperatura al terminar |
+| **IAE** = ∫\|e\| dt | Integral del error absoluto, en °C·min: el **área entre la curva y el setpoint**. Premia que el error sea pequeño todo el tiempo |
+| **ISE** = ∫e² dt | Integral del error al cuadrado, en °C²·min: **castiga mucho los errores grandes**, como sobrepasos fuertes o subidas lentas |
+
+Para IAE e ISE, **menor es mejor**, y solo son comparables entre corridas de la **misma duración**. En este horno casi todo su valor viene de la subida inicial, limitada por la física; las diferencias aparecen cuando algo va mal (por ejemplo, sin anti-windup el IAE sube ~19 %).
+
+---
+
+## Resultados en archivo
+
+Cada corrida se guarda automáticamente en la carpeta **`resultados`**:
+
+- con `main.exe`: `simulador\dist\resultados\`
+- desde el código: `simulador\resultados\`
+
+El nombre indica la fecha, el método, el Δt y el anti-windup, por ejemplo `2026-10-08_143015_rk4_dt0,1_condicional.csv`, y la consola muestra la ruta al salir. El archivo se abre directamente en **Excel en español** (separador `;`, coma decimal):
+
+- las primeras filas (`#`) guardan la configuración y las métricas;
+- luego hay una fila por segundo simulado con `t_s`, `T_C` (temperatura real), `T_set_C`, `error_C` (el error que vio el controlador, incluidas las perturbaciones) y `u` (potencia, de 0 a 1).
+
+---
+
+## Modelo y control
+
+- **Modelo térmico:** sistema de **primer orden**, con pérdidas al ambiente según la **Ley de Enfriamiento de Newton** más la potencia del calentador:
+  `dT/dt = (T_AMB − T)/τ + B·u`, con `u ∈ [0, 1]` (un horno no enfría activamente).
+  La ganancia `B = (T_MAX_EQ − T_AMB)/τ` se deriva de la temperatura de equilibrio a potencia plena (1300 °C por defecto), lo que da un calentamiento máximo realista de ~0,42 °C/s.
+- **PID** (por defecto Kp = 200, Ki = 10, Kd = 2):
+  - **Proporcional:** responde al error instantáneo.
+  - **Integral:** corrige el error acumulado (regla del trapecio), protegida por el **anti-windup**.
+  - **Derivativa:** se calcula sobre la **temperatura medida**, para evitar picos cuando el error salta.
+- **Perturbaciones:** el ruido, la senoide y los impulsos se suman al **error que ve el controlador**, como si el sensor leyera mal; la física del horno no se perturba.
+
+---
+
+## Instalación y desarrollo
 
 ```bash
-pip install -r requirements-dev.txt
-python -m pytest
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt                          # ejecutar
+pip install -r requirements.txt -r requirements-dev.txt  # + PyInstaller y pytest
+python main.py                                           # desde la carpeta simulador/
+python -m pytest                                         # pruebas automáticas
+pyinstaller main.spec --noconfirm --clean                # regenerar dist\main.exe
+```
+
+Dependencias principales: `rich` (consola), `readchar` (teclado), `pyqtgraph` + `PySide6` (monitor gráfico) y `numpy`. Requiere un escritorio con interfaz gráfica (Qt). Para regenerar `main.exe`, el simulador debe estar **cerrado**.
+
+## Estructura del proyecto
+
+```text
+simulador/
+├── main.py  main.spec          # punto de entrada · configuración de PyInstaller
+├── requirements*.txt           # dependencias (ejecución / desarrollo)
+├── CLAUDE.md  README.md        # guía técnica · esta guía
+├── pytest.ini  tests/          # pruebas automáticas
+├── documentos/                 # planes de trabajo futuros
+├── dist/  build/  resultados/  # ejecutable · compilación · CSV (no se versionan)
+└── simulador_horno/
+    ├── app.py                  # bienvenida + bucle del menú
+    ├── configuracion/          # ¿con qué parámetros?   horno, PID, simulación, límites
+    ├── modelo/                 # ¿qué se simula?        horno, perturbaciones, actuador
+    ├── control/                # ¿quién controla?       PID, anti-windup, saturación, error
+    ├── numerico/               # ¿con qué método?       integradores, comparación, estabilidad
+    ├── simulacion/             # ¿quién coordina?       motor, reloj, historial, métricas, resultados, simulador
+    ├── interfaz/               # ¿qué ve el usuario?    consola (rich), gráficas (pyqtgraph), alarmas
+    └── estilos/                # ¿cómo se ve?           tema visual
 ```
 
 ---
-## En caso de consulta contactar a:
 
-**Omar Alberto Torres**
-**Tel:** [+57 304 344 0112](tel:+573043440112)
+## Contacto
 
+**Omar Alberto Torres**  
+**Tel:** [+57 304 344 0112](tel:+573043440112)  
 **Correo:** [omara.torres@udea.edu.co](mailto:omara.torres@udea.edu.co)
 
->**Nota:** Si necesitan información adicional sobre la ejecución o detalles técnicos del proyecto, escribemen al correo institucional.
-> Tambien pueden revisar los comentarios en el código fuente para aclaraciones rápidas.
----
-
-
+> Si necesitan información adicional sobre la ejecución o detalles técnicos del proyecto, escríbanme al correo institucional. También pueden revisar los comentarios del código fuente para aclaraciones rápidas.
