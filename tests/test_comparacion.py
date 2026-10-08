@@ -1,7 +1,7 @@
 """Comparación de métodos con la solución exacta (numerico.comparacion)."""
 import pytest
 
-from simulador_horno.configuracion import parametros_horno as vhorno
+from simulador_horno.configuracion.parametros import ParametrosHorno
 from simulador_horno.numerico.comparacion import (
     DTS_COMPARACION, HORIZONTE, comparar, integrar, solucion_exacta,
 )
@@ -14,9 +14,9 @@ def resultado():
 
 
 def test_solucion_exacta():
-    vhorno.recalcular_B()
-    assert solucion_exacta(0.0, vhorno.T_AMB) == pytest.approx(vhorno.T_AMB)
-    assert solucion_exacta(1e9, vhorno.T_AMB) == pytest.approx(vhorno.T_MAX_EQ)   # u = 1
+    horno = ParametrosHorno()
+    assert solucion_exacta(0.0, horno.T_AMB, horno) == pytest.approx(horno.T_AMB)
+    assert solucion_exacta(1e9, horno.T_AMB, horno) == pytest.approx(horno.T_MAX_EQ)   # u = 1
 
 
 @pytest.mark.parametrize("metodo", list(METODOS))
@@ -46,21 +46,17 @@ def test_costo_en_evaluaciones(resultado):
     assert rk4_barato.error_maximo < euler_caro.error_maximo
 
 
-def test_no_altera_el_dt_del_usuario():
-    vhorno.DT = 0.37
-    comparar()
-    integrar("rk4", 60.0)
-    assert vhorno.DT == 0.37
+def test_no_altera_el_horno_del_usuario():
+    horno = ParametrosHorno(DT=0.37, TAU=2000)
+    comparar(horno)
+    tray = integrar("rk4", 60.0, horno)
+    assert horno.DT == 0.37
+    assert tray.dt == 60.0 and tray.tiempos[1] == 60.0
 
 
-def test_restaura_dt_aunque_falle(monkeypatch):
-    from simulador_horno.numerico import comparacion
-
-    def falla(T, u):
-        raise RuntimeError("fallo simulado")
-
-    monkeypatch.setitem(comparacion.METODOS, "euler", falla)
-    vhorno.DT = 0.25
-    with pytest.raises(RuntimeError):
-        integrar("euler", 60.0)
-    assert vhorno.DT == 0.25
+def test_usa_los_parametros_del_horno_recibido():
+    """Con otra TAU la exacta cambia y el método la sigue."""
+    rapido = ParametrosHorno(TAU=1000)
+    tray = integrar("rk4", 15.0, rapido)
+    assert tray.temperaturas[-1] == pytest.approx(solucion_exacta(HORIZONTE, rapido.T_AMB, rapido), abs=1e-3)
+    assert tray.temperaturas[-1] > integrar("rk4", 15.0).temperaturas[-1]   # calienta más rápido

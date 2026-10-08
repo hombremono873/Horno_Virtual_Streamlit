@@ -10,6 +10,7 @@ import pytest
 
 from simulador_horno.configuracion import parametros_horno as vhorno
 from simulador_horno.configuracion import parametros_simulacion as vsim
+from simulador_horno.configuracion.parametros import ParametrosHorno
 from simulador_horno.numerico.integradores import METODOS, NOMBRES
 from simulador_horno.simulacion.motor import Motor
 
@@ -17,19 +18,18 @@ ORDEN = {"euler": 1, "heun": 2, "rk4": 4}
 HORIZONTE = 3600.0   # s simulados
 
 
-def solucion_exacta(t, u=1.0):
-    T_eq = vhorno.T_AMB + vhorno.B * u * vhorno.TAU
-    return T_eq + (vhorno.T_AMB - T_eq) * math.exp(-t / vhorno.TAU)
+def solucion_exacta(t, horno, u=1.0):
+    T_eq = horno.T_AMB + horno.B * u * horno.TAU
+    return T_eq + (horno.T_AMB - T_eq) * math.exp(-t / horno.TAU)
 
 
 def error_global(metodo, dt, u=1.0):
     """|T_numérica - T_exacta| al final del horizonte, integrando con paso dt."""
-    vhorno.DT = dt
-    vhorno.recalcular_B()
-    T = vhorno.T_AMB
+    horno = ParametrosHorno(DT=dt)
+    T = horno.T_AMB
     for _ in range(int(round(HORIZONTE / dt))):
-        T = METODOS[metodo](T, u)
-    return abs(T - solucion_exacta(HORIZONTE, u))
+        T = METODOS[metodo](T, u, horno)
+    return abs(T - solucion_exacta(HORIZONTE, horno, u))
 
 
 def test_cada_metodo_tiene_nombre():
@@ -38,12 +38,11 @@ def test_cada_metodo_tiene_nombre():
 
 @pytest.mark.parametrize("metodo", list(METODOS))
 def test_u_constante_converge_a_t_max_eq(metodo):
-    vhorno.DT = 1.0
-    vhorno.recalcular_B()
-    T = vhorno.T_AMB
-    for _ in range(int(10 * vhorno.TAU)):     # 10 constantes de tiempo
-        T = METODOS[metodo](T, 1.0)
-    assert T == pytest.approx(vhorno.T_MAX_EQ, abs=0.5)
+    horno = ParametrosHorno(DT=1.0)
+    T = horno.T_AMB
+    for _ in range(int(10 * horno.TAU)):     # 10 constantes de tiempo
+        T = METODOS[metodo](T, 1.0, horno)
+    assert T == pytest.approx(horno.T_MAX_EQ, abs=0.5)
 
 
 def test_metodos_ordenados_por_precision():

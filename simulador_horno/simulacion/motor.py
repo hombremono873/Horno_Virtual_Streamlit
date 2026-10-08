@@ -10,7 +10,7 @@ from simulador_horno.configuracion import parametros_pid as vpid
 from simulador_horno.configuracion import parametros_simulacion as vsim
 from simulador_horno.control.pid import actualizar_pid
 from simulador_horno.control.senal_error import construir_error
-from simulador_horno.modelo import horno as modelo_horno
+from simulador_horno.modelo.horno import ENTORNO_IDEAL
 from simulador_horno.modelo.perturbaciones import (
     factor_potencia_red, impulso_activo, puerta, reiniciar_impulso, temperatura_ambiente,
 )
@@ -55,16 +55,8 @@ class Motor:
         # se registra ANTES de integrar: cada muestra es coherente en el
         # instante t (T(t), el error visto en t y la u decidida en t)
         self.historial.registrar(self.t, self.T, error, u)
-        entorno = self._entorno()
-        if entorno is modelo_horno.ENTORNO_IDEAL:
-            self.T = self._integrar(self.T, u)
-        else:
-            # las perturbaciones del horno solo rigen durante este paso
-            modelo_horno.entorno = entorno
-            try:
-                self.T = self._integrar(self.T, u)
-            finally:
-                modelo_horno.entorno = modelo_horno.ENTORNO_IDEAL
+        # las perturbaciones del horno solo rigen durante este paso
+        self.T = self._integrar(self.T, u, vhorno, self._entorno())
         self.t += vhorno.DT
         self.u, self.error = u, error
         return u, error
@@ -72,7 +64,7 @@ class Motor:
     def _entorno(self):
         """Condiciones físicas del paso según las perturbaciones del horno activas."""
         if not (vhorno.puerta or vhorno.red_variable or vhorno.ambiente_variable):
-            return modelo_horno.ENTORNO_IDEAL
+            return ENTORNO_IDEAL
         T_amb, perdida_extra, potencia = None, 0.0, 1.0
         if vhorno.ambiente_variable:
             T_amb = temperatura_ambiente(self.t, vhorno.T_AMB,

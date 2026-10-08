@@ -22,7 +22,7 @@ Sin E/S: devuelve datos que la interfaz presenta (tabla y gráficas).
 """
 from dataclasses import dataclass
 
-from simulador_horno.configuracion import parametros_horno as vhorno
+from simulador_horno.configuracion.parametros import ParametrosHorno
 from simulador_horno.numerico.comparacion import integrar
 from simulador_horno.numerico.integradores import METODOS
 
@@ -37,9 +37,9 @@ _COEFICIENTES = {    # R(z) = Σ c_k·z^k  (desarrollo de Taylor de e^z truncado
 }
 
 
-def factor_amplificacion(metodo, dt, tau=None):
+def factor_amplificacion(metodo, dt, tau):
     """R(z) con z = −dt/tau: factor por el que el método multiplica la desviación."""
-    z = -dt / (tau or vhorno.TAU)
+    z = -dt / tau
     return sum(c * z ** k for k, c in enumerate(_COEFICIENTES[metodo]))
 
 
@@ -49,9 +49,8 @@ def clasificar(R):
     return "oscila" if R < 0 else "estable"
 
 
-def limite_estabilidad(metodo, tau=None):
+def limite_estabilidad(metodo, tau):
     """Mayor Δt estable (s): raíz de |R(−Δt/τ)| = 1 en (0, 4τ], por bisección."""
-    tau = tau or vhorno.TAU
     bajo, alto = 0.1 * tau, 4.0 * tau    # en 0,1τ es estable; en 4τ ninguno lo es
     for _ in range(60):
         medio = (bajo + alto) / 2
@@ -74,15 +73,16 @@ class ResultadoEstabilidad:
         return clasificar(self.factores[(metodo, dt)])
 
 
-def estudiar(fracciones=FRACCIONES_TAU, horizonte_tau=HORIZONTE_TAU):
+def estudiar(horno=None, fracciones=FRACCIONES_TAU, horizonte_tau=HORIZONTE_TAU):
     """Integra el enfriamiento libre con cada método y cada Δt = fracción·TAU."""
-    tau = vhorno.TAU
-    T0 = vhorno.T_SET
+    horno = horno or ParametrosHorno()
+    tau = horno.TAU
+    T0 = horno.T_SET
     dts = tuple(f * tau for f in fracciones)
     trayectorias, factores = {}, {}
     for metodo in METODOS:
         for dt in dts:
-            trayectorias[(metodo, dt)] = integrar(metodo, dt, horizonte_tau * tau, u=0.0, T0=T0)
+            trayectorias[(metodo, dt)] = integrar(metodo, dt, horno, horizonte_tau * tau, u=0.0, T0=T0)
             factores[(metodo, dt)] = factor_amplificacion(metodo, dt, tau)
     limites = {m: limite_estabilidad(m, tau) for m in METODOS}
     return ResultadoEstabilidad(T0, dts, trayectorias, factores, limites)

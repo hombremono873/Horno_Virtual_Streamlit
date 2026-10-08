@@ -6,6 +6,7 @@ import pytest
 
 from simulador_horno.configuracion import limites
 from simulador_horno.configuracion import parametros_horno as vhorno
+from simulador_horno.configuracion.parametros import ParametrosHorno
 from simulador_horno.modelo import horno as modelo_horno
 from simulador_horno.modelo.perturbaciones import (
     EventoAleatorio, factor_potencia_red, temperatura_ambiente,
@@ -27,15 +28,19 @@ def regimen(**perturbaciones):
 
 
 def test_derivada_ideal_es_la_formula_original():
-    vhorno.recalcular_B()
+    horno = ParametrosHorno()
     for T, u in ((30.0, 1.0), (512.3, 0.37), (1000.0, 0.764)):
-        original = (1 / vhorno.TAU) * (vhorno.T_AMB - T) + vhorno.B * u
-        assert modelo_horno.derivada(T, u) == original      # bit a bit
+        original = (1 / horno.TAU) * (horno.T_AMB - T) + horno.B * u
+        assert modelo_horno.derivada(T, u, horno) == original      # bit a bit
 
 
-def test_el_entorno_se_restaura_tras_cada_paso():
-    regimen(puerta=True, red_variable=True, ambiente_variable=True)
-    assert modelo_horno.entorno is modelo_horno.ENTORNO_IDEAL
+def test_derivada_con_entorno_perturbado():
+    horno = ParametrosHorno()
+    T, u = 900.0, 0.5
+    entorno = (40.0, 1 / limites.TAU_PUERTA, 0.9)   # ambiente, puerta abierta, red baja
+    esperado = (1 / horno.TAU) * (40.0 - T) + horno.B * (u * 0.9) + (40.0 - T) / limites.TAU_PUERTA
+    assert modelo_horno.derivada(T, u, horno, entorno) == pytest.approx(esperado)
+    assert modelo_horno.derivada(T, u, horno, entorno) < modelo_horno.derivada(T, u, horno)
 
 
 def test_sin_perturbaciones_la_temperatura_queda_plana():

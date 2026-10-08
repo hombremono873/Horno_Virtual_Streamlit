@@ -4,9 +4,10 @@
 
 Los tres métodos evalúan la misma ecuación, ``modelo.horno.derivada``
 (que incluye las perturbaciones físicas activas); difieren solo en cómo
-combinan esas evaluaciones. El usuario elige el método desde el menú
-(``formularios.configurar_metodo``); ``METODOS`` asocia cada clave con su
-función de paso, todas con la misma firma ``(T_actual, u) -> T_nuevo``.
+combinan esas evaluaciones. El usuario elige el método en la configuración
+(``ParametrosSimulacion.metodo``); ``METODOS`` asocia cada clave con su
+función de paso, todas con la misma firma
+``(T_actual, u, horno, entorno=ENTORNO_IDEAL) -> T_nuevo``; el paso es ``horno.DT``.
 
     Método   Orden   Evaluaciones de dT/dt por paso
     Euler      1       1
@@ -15,23 +16,22 @@ función de paso, todas con la misma firma ``(T_actual, u) -> T_nuevo``.
 """
 import math
 
-from simulador_horno.configuracion import parametros_horno as var
-from simulador_horno.modelo.horno import derivada, simular_horno
+from simulador_horno.modelo.horno import ENTORNO_IDEAL, derivada, simular_horno
 
 
-def simular_horno_heun(T_actual, u):
+def simular_horno_heun(T_actual, u, horno, entorno=ENTORNO_IDEAL):
     """Método de Heun (predictor-corrector, RK de 2º orden)."""
     try:
-        DT = var.DT
+        DT = horno.DT
 
         # Paso 1: pendiente inicial
-        k1 = derivada(T_actual, u)
+        k1 = derivada(T_actual, u, horno, entorno)
 
         # Paso 2: valor predicho
         T_pred = T_actual + DT * k1
 
         # Paso 3: pendiente final
-        k2 = derivada(T_pred, u)
+        k2 = derivada(T_pred, u, horno, entorno)
 
         # Paso 4: corrección (promedio de pendientes)
         T_nuevo = T_actual + (DT / 2) * (k1 + k2)
@@ -45,15 +45,15 @@ def simular_horno_heun(T_actual, u):
     return T_nuevo
 
 
-def simular_horno_runge(T_actual, u):
+def simular_horno_runge(T_actual, u, horno, entorno=ENTORNO_IDEAL):
     """Método de Runge-Kutta de 4º orden."""
     try:
-        h = var.DT
+        h = horno.DT
 
-        k1 = derivada(T_actual, u)
-        k2 = derivada(T_actual + 0.5 * h * k1, u)
-        k3 = derivada(T_actual + 0.5 * h * k2, u)
-        k4 = derivada(T_actual + h * k3, u)
+        k1 = derivada(T_actual, u, horno, entorno)
+        k2 = derivada(T_actual + 0.5 * h * k1, u, horno, entorno)
+        k3 = derivada(T_actual + 0.5 * h * k2, u, horno, entorno)
+        k4 = derivada(T_actual + h * k3, u, horno, entorno)
 
         T_nuevo = T_actual + (h / 6) * (k1 + 2 * k2 + 2 * k3 + k4)
 
@@ -66,7 +66,7 @@ def simular_horno_runge(T_actual, u):
     return T_nuevo
 
 
-# Clave (parametros_simulacion.metodo) -> nombre visible y función de paso.
+# Clave (ParametrosSimulacion.metodo) -> nombre visible y función de paso.
 NOMBRES = {
     "euler": "Euler",
     "heun": "Heun (RK2)",
