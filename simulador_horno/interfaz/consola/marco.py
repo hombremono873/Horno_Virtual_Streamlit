@@ -27,6 +27,7 @@ from rich.text import Text
 from simulador_horno.configuracion import parametros_horno as vhorno
 from simulador_horno.configuracion import parametros_pid as vpid
 from simulador_horno.configuracion import parametros_simulacion as vsim
+from simulador_horno.control.anti_windup import NOMBRES as NOMBRES_ANTI_WINDUP
 from simulador_horno.estilos import tema
 from simulador_horno.numerico.integradores import NOMBRES as NOMBRES_METODOS
 
@@ -101,7 +102,7 @@ def panel_estado():
     t.add_row("Kp", f"{vpid.KP:g}")
     t.add_row("Ki", f"{vpid.KI:g}")
     t.add_row("Kd", f"{vpid.KD:g}")
-    t.add_row("Límite integral", f"{vpid.restringir_integral:g}")
+    t.add_row("Anti-windup", NOMBRES_ANTI_WINDUP[vpid.anti_windup] + (f" ({vpid.restringir_integral:g})" if vpid.anti_windup == "recorte" else ""))
     t.add_row("", "")
     t.add_row("T. objetivo", f"{vhorno.T_SET:g} °C")
     t.add_row("T. ambiente", f"{vhorno.T_AMB:g} °C")

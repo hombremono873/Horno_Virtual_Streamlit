@@ -6,7 +6,7 @@
 
 # --- Controlador -------------------------------------------------
 U_MAX = 20000.0        # escala de saturación de la señal de control (control.escalado)
-UMBRAL_INTEGRAL = 2000 # a partir de aquí actúa el anti-windup (control.pid)
+UMBRAL_INTEGRAL = 2000 # tope del anti-windup en modo "recorte" (control.anti_windup)
 
 # --- Velocidad de simulación -------------------------------------
 # Relación tiempo simulado / tiempo real. None = "máxima": sin esperas,

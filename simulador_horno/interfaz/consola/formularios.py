@@ -1,4 +1,4 @@
-"""Formularios de configuración: PID, horno, perturbaciones, límite integral,
+"""Formularios de configuración: PID, horno, perturbaciones, anti-windup,
 velocidad y método numérico.
 
 Cada formulario escribe directamente sobre los módulos de ``configuracion`` para que
@@ -11,6 +11,7 @@ from simulador_horno.configuracion import limites
 from simulador_horno.configuracion import parametros_horno as horno
 from simulador_horno.configuracion import parametros_pid as pid
 from simulador_horno.configuracion import parametros_simulacion as sim
+from simulador_horno.control.anti_windup import NOMBRES as NOMBRES_ANTI_WINDUP
 from simulador_horno.interfaz.consola import marco
 from simulador_horno.interfaz.consola.comparacion import resumen_comparacion
 from simulador_horno.interfaz.consola.estabilidad import resumen_estabilidad
@@ -117,24 +118,53 @@ def configurar_error_impulso():
 
 
 # ----------------------------------------------------------------------
-# Límite de la integral (opción 5)
+# Anti-windup (opción 5)
 # ----------------------------------------------------------------------
-_AYUDA_INTEGRAL = Text.from_markup(
-    "Factor [0-1] que recorta el término integral cuando supera el umbral,\n"
-    "para reducir el efecto 'windup'.\n\n"
+_DESCRIPCION_ANTI_WINDUP = {
+    "ninguno": "La integral crece sin límite: muestra el problema (sobrepaso ~29 %)",
+    "recorte": "Método original: recorta la integral sobre un umbral fijo",
+    "condicional": "Estándar industrial: no integra mientras la potencia satura",
+}
+
+_AYUDA_ANTI_WINDUP = Text.from_markup(
+    "Durante la subida el horno va al 100 % y el error se sigue acumulando en\n"
+    "la integral aunque la potencia ya no pueda aumentar. Al llegar al setpoint\n"
+    "esa integral 'inflada' hace que la temperatura se pase (windup).\n\n"
+    "[b]Recorte[/b]: con KI bajo el umbral fijo no deja llegar al setpoint.\n"
+    "[b]Integración condicional[/b]: funciona con cualquier sintonía."
+)
+
+_AYUDA_RECORTE = Text.from_markup(
+    "Factor [0-1] que multiplica la integral cuando supera el umbral.\n\n"
     "1 = sin recorte · valores menores recortan más agresivamente."
 )
 
 
-def acotar_integral():
-    marco.cabecera_seccion("ACOTAR TÉRMINO INTEGRAL", _AYUDA_INTEGRAL, migas=["Acotar integral"])
-    while True:
-        valor = marco.pedir_float("Límite de la integral [0-1]", pid.restringir_integral)
-        if 0.0 <= valor <= 1.0:
-            pid.restringir_integral = valor
-            break
-        console.print("[bold red]  El valor debe estar entre 0 y 1.[/]")
-    marco.resumen("Límite integral actualizado", {"restringir_integral": f"{pid.restringir_integral:g}"})
+def configurar_anti_windup():
+    claves = list(NOMBRES_ANTI_WINDUP)
+    items = [(str(i), NOMBRES_ANTI_WINDUP[c], _DESCRIPCION_ANTI_WINDUP[c]) for i, c in enumerate(claves, 1)]
+    items.append((str(len(items) + 1), "Volver", "Conservar el anti-windup actual"))
+    eleccion = marco.menu_interactivo(
+        "ANTI-WINDUP", items, migas=["Anti-windup"],
+        inicial=claves.index(pid.anti_windup) if pid.anti_windup in claves else 0,
+    )
+    indice = int(eleccion) - 1
+    if indice < len(claves):
+        pid.anti_windup = claves[indice]
+
+    marco.cabecera_seccion("ANTI-WINDUP", _AYUDA_ANTI_WINDUP, migas=["Anti-windup"])
+    filas = {"activo": NOMBRES_ANTI_WINDUP[pid.anti_windup]}
+    if pid.anti_windup == "recorte":
+        console.print(_AYUDA_RECORTE)
+        console.print()
+        while True:
+            valor = marco.pedir_float("Factor de recorte [0-1]", pid.restringir_integral)
+            if 0.0 <= valor <= 1.0:
+                pid.restringir_integral = valor
+                break
+            console.print("[bold red]  El valor debe estar entre 0 y 1.[/]")
+        filas["factor de recorte"] = f"{pid.restringir_integral:g}"
+    marco.resumen("Anti-windup", filas)
 
 
 # ----------------------------------------------------------------------

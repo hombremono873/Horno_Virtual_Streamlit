@@ -159,7 +159,7 @@ En los formularios, `Enter` sin escribir nada conserva el valor actual (se muest
 | `2` Configurar horno | T ambiente, setpoint, T máx. de equilibrio, τ, Δt |
 | `3` Error oscilante | Ruido + senoide sobre el error |
 | `4` Error de impulso | Impulsos térmicos aleatorios (~6 por hora simulada) |
-| `5` Acotar integral | Límite del término integral [0-1] |
+| `5` Anti-windup | Ninguno, recorte de la integral o integración condicional (por defecto) |
 | `6` Velocidad de simulación | x1, x10, x60 (por defecto), x600 o máxima |
 | `7` Método numérico | Euler (por defecto), Heun (RK2) o Runge-Kutta 4 |
 | `8` Ejecutar simulación | Abre el monitor en tiempo real |

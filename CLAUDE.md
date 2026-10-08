@@ -94,11 +94,11 @@ Este punto es el más importante para entender el código. **No hay objetos de c
   - `T_AMB=30`, `T_SET=1000`, `T_MAX_EQ=1300` (equilibrio con u = 1), `TAU=3000` y `DT=0.1`.
   - **`B` es derivado:** `recalcular_B()` hace `B = (T_MAX_EQ − T_AMB)/TAU` ≈ 0,423 °C/s. Llámala siempre que cambies `T_AMB`, `TAU` o `T_MAX_EQ` (lo hacen el formulario y el `Motor`).
   - También guarda las listas del historial (`tiempos`, `temperaturas`, `errores`) y los flags de perturbación (`error_oscilante`, `flag_error`, `delta_T`).
-- `configuracion/parametros_pid.py` (alias `var`, `vpid`, `pid`): `KP=200`, `KI=10`, `KD=2`, `restringir_integral=0.85` y el estado interno del PID entre pasos (`error_prev`, `integral`, `derivada`, `proporcional`). `Motor` pone ese estado a cero al iniciar cada corrida.
+- `configuracion/parametros_pid.py` (alias `var`, `vpid`, `pid`): `KP=200`, `KI=10`, `KD=2`, `anti_windup="condicional"`, `restringir_integral=0.85` (factor del modo "recorte") y el estado interno del PID entre pasos (`error_prev`, `integral`, `derivada`, `proporcional`). `Motor` pone ese estado a cero al iniciar cada corrida.
 - `configuracion/parametros_simulacion.py` (alias `vsim`, `sim`): `velocidad="x60"` (clave de `limites.VELOCIDADES`) y `metodo="euler"` (clave de `numerico.integradores.METODOS`).
 - `configuracion/parametros_electricos.py`: `angulo_conduccion` (no se usa en el bucle).
 - `configuracion/limites.py`: constantes **fijas** que el menú no edita:
-  - control: `U_MAX=20000`, `UMBRAL_INTEGRAL=2000`;
+  - control: `U_MAX=20000`, `UMBRAL_INTEGRAL=2000` (tope del modo "recorte");
   - velocidad: `VELOCIDADES` (`None` = máxima), `REFRESCO_HZ=4`;
   - historial: `INTERVALO_MUESTREO=1.0` s simulado y `MAX_MUESTRAS` (`HORAS_HISTORIAL=12` h);
   - impulso: `TASA_IMPULSOS_HORA=6`, `DURACION_IMPULSO=3` s, `MAGNITUD_IMPULSO=80` °C;
@@ -133,9 +133,12 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 **PID** ([control/pid.py](simulador_horno/control/pid.py)):
 - `calcular_pid(error, error_prev, integral)` es **pura**. Integra con la regla del trapecio y deriva por diferencia hacia atrás. Devuelve `(u_escalado, integral, error, KD·derivada, KP·error)`.
 - `actualizar_pid(error)` llama a la anterior y persiste el estado en `parametros_pid`.
-- Anti-windup ([anti_windup.py](simulador_horno/control/anti_windup.py)): solo actúa si `integral > UMBRAL_INTEGRAL`. En ese caso la multiplica por `restringir_integral` (opción 5 del menú).
+- Anti-windup ([anti_windup.py](simulador_horno/control/anti_windup.py)), elegible en la opción 5 del menú (`parametros_pid.anti_windup`). `calcular_pid` calcula la integral nueva por trapecio y la salida sin saturar `u_bruta`, y `limitar(modo, integral_previa, integral_nueva, error, u_bruta)` decide qué integral se conserva:
+  - `"ninguno"`: integra siempre. Con las ganancias por defecto la integral llega a ~1,6 millones y el sobrepaso es de ~29 %; sirve para mostrar el windup.
+  - `"recorte"`: el método original, que reproduce bit a bit el comportamiento anterior. Si la integral supera `UMBRAL_INTEGRAL` se multiplica por `restringir_integral`. **Con KI bajo deja error permanente** (KI = 5: 28 °C; KP = 50 y KI = 2: 176 °C).
+  - `"condicional"` (**por defecto**): integración condicional o *clamping*. No integra si `u_bruta > 1` y el error es positivo, ni si `u_bruta < 0` y el error es negativo. Llega al setpoint con cualquier sintonía.
 - Saturación ([escalado.py](simulador_horno/control/escalado.py)): `u = clamp(u_bruto / U_MAX, 0, 1)`. Un horno no enfría activamente.
-- **Desempeño por defecto** (lo verifica `tests/test_control.py`): 90 % a los 58 min, sobrepaso del 0,27 %, banda de ±1 % a los 71 min y error final de 0 °C. La subida está limitada por la física (u = 1 toda la rampa), no por las ganancias.
+- **Desempeño por defecto** (lo verifica `tests/test_control.py`): 90 % a los 58 min, sobrepaso del 0,54 % (0,27 % con el modo "recorte"), banda de ±1 % a los 71 min y error final de 0 °C. La subida está limitada por la física (u = 1 toda la rampa), no por las ganancias.
 
 **Actuador** ([modelo/actuador.py](simulador_horno/modelo/actuador.py)): convierte `u` en un ángulo de disparo `θ ∈ [THETA_MIN, THETA_MAX]` con un suavizado aleatorio. **No se usa** en el bucle.
 
@@ -191,6 +194,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 | `test_integradores.py` | cada método converge a `T_MAX_EQ`; Euler > Heun > RK4 en error; orden observado 1, 2 y 4 frente a la solución exacta; el motor usa el método elegido |
 | `test_comparacion.py` | orden observado ≈ teórico para cada Δt; más orden, menos error; el costo en evaluaciones; Δt del usuario restaurado incluso si falla |
 | `test_estabilidad.py` | factores R teóricos; límites 2τ, 2τ y 2,785τ; el código real amplifica exactamente por R; el comportamiento observado coincide con el veredicto |
+| `test_anti_windup.py` | sin anti-windup hay windup (sobrepaso > 20 %); el condicional llega al setpoint con cualquier sintonía; el recorte deja error con KI bajo; la regla de integración condicional |
 | `test_capas.py` | `motor` y `reloj` no importan rich, PySide6 ni pyqtgraph |
 
 ## Cómo añadir cosas
@@ -207,7 +211,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 ## Deuda técnica y trampas conocidas
 
 1. Las perturbaciones afectan al **error**, no a la física. `delta_T` se calcula pero `simular_horno` no lo usa.
-2. **El anti-windup es asimétrico y limita la sintonía.** No se acota la integral negativa, y la positiva queda topada en ~`UMBRAL_INTEGRAL`. En el equilibrio el horno necesita u ≈ 0,76, es decir `KI·integral/U_MAX ≈ 0,76`. Si KI es bajo, la integral necesaria supera el tope y queda **error permanente**. Con KP = 200, tras 6 h quedan 2,4 °C con KI = 8, 11 °C con KI = 7 y 28 °C con KI = 5.
+2. **El modo "recorte" (el anti-windup original) limita la sintonía.** Se conserva para comparar, pero ya no es el predeterminado. No acota la integral negativa, y la positiva queda topada en ~`UMBRAL_INTEGRAL`. En el equilibrio el horno necesita u ≈ 0,76, es decir `KI·integral/U_MAX ≈ 0,76`, así que con KI bajo queda **error permanente**. El modo "condicional", el predeterminado, no tiene este problema.
 3. El estado del impulso vive en atributos de la función `impulso_probabilistico` (se reinicia con `reiniciar_impulso()`). Debería ser un objeto.
 4. `senal_error.py` (capa de control) importa `interfaz.alarmas.sonora`. Es una violación de capas pendiente: debería notificar la simulación.
 5. En el primer paso `error_prev = 0`, lo que produce un *derivative kick* (`KD·error/DT`). Es inofensivo porque u ya satura en 1 al inicio.

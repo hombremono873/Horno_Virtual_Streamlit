@@ -13,6 +13,7 @@ from rich.table import Table
 from rich.text import Text
 
 from simulador_horno.configuracion import parametros_pid as vpid
+from simulador_horno.control.anti_windup import NOMBRES as NOMBRES_ANTI_WINDUP
 from simulador_horno.estilos import tema
 
 console = Console()
@@ -92,7 +93,7 @@ def generar_tabla(t, T, T_set, u, error, pid, horno, acciones, velocidad, t_real
     cfg.add_column("Parámetro", style=tema.C_TENUE)
     cfg.add_column("Valor", justify="right", style=tema.C_VALOR)
     cfg.add_row("Kp / Ki / Kd", f"{pid.get('kp', 0):g} / {pid.get('ki', 0):g} / {pid.get('kd', 0):g}")
-    cfg.add_row("Restricción integral", f"{vpid.restringir_integral:g}")
+    cfg.add_row("Anti-windup", NOMBRES_ANTI_WINDUP[vpid.anti_windup] + (f" ({vpid.restringir_integral:g})" if vpid.anti_windup == "recorte" else ""))
     cfg.add_row("T máx. equilibrio", f"{horno.get('T_max_eq', 0.0):g} °C")
     cfg.add_row("B (ganancia térmica)", f"{horno.get('B', 0.0):.4f} °C/s")
     cfg.add_row("τ (constante de tiempo)", f"{horno.get('tau', 0.0):g} s")

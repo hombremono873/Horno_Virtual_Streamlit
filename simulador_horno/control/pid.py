@@ -15,7 +15,8 @@ from simulador_horno.control.escalado import escalar_u
 def calcular_pid(error, error_prev, integral):
     """Devuelve ``(u, integral, error, termino_D, termino_P)``.
 
-    - integral: regla del trapecio.
+    - integral: regla del trapecio, limitada por el anti-windup elegido
+      (``parametros_pid.anti_windup``, ver :mod:`control.anti_windup`).
     - derivada: diferencia hacia atrás.
     - salida ``u`` saturada por :func:`escalar_u`.
     """
@@ -23,13 +24,13 @@ def calcular_pid(error, error_prev, integral):
     if DT == 0:
         DT = 1e-6   # protección mínima
 
-    integral += 0.5 * (error + error_prev) * DT   # integral por regla del trapecio
+    integral_nueva = integral + 0.5 * (error + error_prev) * DT   # regla del trapecio
     derivada = (error - error_prev) / DT
-
-    if integral > limites.UMBRAL_INTEGRAL:
-        integral = windout.minimizar_integral(integral)
-
     proporcional = var.KP * error
+
+    u_bruta = (proporcional + var.KI * integral_nueva + var.KD * derivada) / limites.U_MAX
+    integral = windout.limitar(var.anti_windup, integral, integral_nueva, error, u_bruta)
+
     u = proporcional + var.KI * integral + var.KD * derivada
     if math.isnan(u) or math.isinf(u):
         u = 0.0

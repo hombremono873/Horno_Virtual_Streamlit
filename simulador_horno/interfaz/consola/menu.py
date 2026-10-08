@@ -6,7 +6,7 @@ ITEMS = [
     ("2", "Configurar horno", "T ambiente, setpoint, T máx., τ, Δt"),
     ("3", "Error oscilante", "Ruido + senoide sobre el error"),
     ("4", "Error de impulso", "Impulsos térmicos probabilísticos"),
-    ("5", "Acotar integral", "Límite del término integral [0-1]"),
+    ("5", "Anti-windup", "Ninguno, recorte o integración condicional"),
     ("6", "Velocidad de simulación", "x1, x10, x60, x600 o máxima"),
     ("7", "Método numérico", "Euler, Heun (RK2) o Runge-Kutta 4"),
     ("8", "Ejecutar simulación", "Abre el monitor en tiempo real"),

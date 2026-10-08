@@ -9,9 +9,12 @@ KI = 10    # Ganancia integral
 KD = 2     # Ganancia derivativa
 
 # ----------------------------------------------------------------
-# Límite del efecto integral (opción 5 -> formularios.acotar_integral).
-# Valor en [0, 1] que escala la integral cuando supera el umbral.
+# Anti-windup (opción 5 -> formularios.configurar_anti_windup).
+#   "ninguno" | "recorte" | "condicional"   (ver control.anti_windup)
+# restringir_integral: factor [0, 1] del modo "recorte", que escala la
+# integral cuando supera limites.UMBRAL_INTEGRAL.
 # ----------------------------------------------------------------
+anti_windup = "condicional"
 restringir_integral = 0.85
 
 # ----------------------------------------------------------------

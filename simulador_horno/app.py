@@ -17,7 +17,7 @@ ACCIONES = {
     "2": formularios.configurar_horno,
     "3": formularios.configurar_error_oscilante,
     "4": formularios.configurar_error_impulso,
-    "5": formularios.acotar_integral,
+    "5": formularios.configurar_anti_windup,
     "6": formularios.configurar_velocidad,
     "7": formularios.configurar_metodo,
     "8": _correr_simulacion,
