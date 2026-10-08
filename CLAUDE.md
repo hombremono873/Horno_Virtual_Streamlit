@@ -25,8 +25,8 @@ simulador_horno/
 ├── numerico/        integradores (METODOS/NOMBRES/ORDEN/EVALUACIONES), comparacion (vs. exacta), estabilidad (R(z))
 ├── simulacion/      motor (paso, sin E/S), reloj (pasos por refresco, pasos_restantes), historial,
 │                    metricas, resultados (CSV), simulador (bucle visual)
-├── interfaz/        consola/ (marco, menu, formularios, tabla_vivo, comparacion, estabilidad, metricas),
-│                    graficas/ (panel = monitor; comparacion y estabilidad = ventanas estáticas), alarmas/
+├── interfaz/        consola/ (marco, menu, formularios, tabla_vivo, comparacion, estabilidad, metricas, dashboard),
+│                    graficas/ (panel = monitor; comparacion, estabilidad y dashboard = ventanas estáticas), alarmas/
 └── estilos/tema.py  colores y medidas de la consola (C_*) y de las gráficas (G_*)
 ```
 Flujo de una corrida: `Simulador.ejecutar` → por cada refresco (4 Hz reales) `reloj.pasos_por_refresco` → `Motor.avanzar(N)` → (`construir_error` → `actualizar_pid` → **registrar** → `METODOS[metodo]`) → `tabla_vivo` + `panel.actualizar` → al salir: métricas, CSV y espera de una tecla.
@@ -46,7 +46,7 @@ No hay objetos de configuración: los parámetros son variables de módulo que e
   - sobre el **horno** (vía `entorno`): `puerta` (`EventoAleatorio`, pérdida extra 1/`TAU_PUERTA`), `red_variable` (potencia = (V/Vn)²) y `ambiente_variable`.
   - Los contadores `Motor.impulsos` y `Motor.aperturas` van al CSV. El impulso se define por tasa por hora simulada (`p = 1 − e^(−tasa·DT/3600)`) y tiene signo constante durante cada impulso. `construir_error` devuelve `(error, impulso_nuevo)`; el `Motor` solo **cuenta** los impulsos (`impulsos`, `impulso_activo`), y el `Simulador` (interfaz) pita una vez por refresco con impulsos nuevos y muestra "⚡ IMPULSO" en la tabla. La lógica no importa la interfaz (`test_capas`).
 - **Métricas:** se calculan sobre la temperatura **real** y valen también para arranques por encima del setpoint. IAE/ISE solo son comparables entre corridas de igual duración.
-- **CSV:** `resultados/` junto al exe (`sys.frozen`) o en el CWD. UTF-8 con BOM, `;` y coma decimal (Excel es-CO); cabecera `# clave;valor`; columnas `t_s;T_C;T_set_C;error_C;u`. `resultados.leer()` es la base del futuro dashboard.
+- **CSV:** `resultados/` junto al exe (`sys.frozen`) o en el CWD. UTF-8 con BOM, `;` y coma decimal (Excel es-CO); cabecera `# clave;valor`; columnas `t_s;T_C;T_set_C;error_C;u`. `resultados.leer()`, `listar()` (más reciente primero) y `metricas_guardadas()` alimentan el **dashboard** (opción 4): elige entre las 7 corridas más recientes y muestra `tabla_comparativa` (rich) y `VentanaDashboard` (curvas superpuestas, con zoom permitido).
 - **Monitor (`panel.py`):**
   - sin ratón: la rueda congelaba la vista;
   - eje Y **centrado en el setpoint**, con semirango tomado de los últimos 30 min;
@@ -66,7 +66,7 @@ No hay objetos de configuración: los parámetros son variables de módulo que e
 ## Pruebas (`tests/`, `pytest.ini` con `pythonpath = .`)
 GitHub Actions (`.github/workflows/pruebas.yml`) las corre en cada push (Windows, Python 3.13, `QT_QPA_PLATFORM=offscreen`). Las pruebas nuevas no deben necesitar pantalla ni escribir fuera de `tmp_path`.
 
-física · control (métricas por defecto: sobrepaso 0,54 %, t90 58 min, establecimiento 71 min) · velocidad · duración (bucle real de `Simulador`) · historial · perturbaciones (tasa independiente de DT) · integradores y comparación (orden 1/2/4) · estabilidad (límites 2τ y 2,785τ; el código amplifica exactamente por R) · anti_windup · derivada · métricas (contra fórmulas de primer orden) · resultados (ida y vuelta del CSV) · arranque · panel (Qt offscreen) · capas.
+física · perturbaciones del horno · dashboard · control (métricas por defecto: sobrepaso 0,54 %, t90 58 min, establecimiento 71 min) · velocidad · duración (bucle real de `Simulador`) · historial · perturbaciones (tasa independiente de DT) · integradores y comparación (orden 1/2/4) · estabilidad (límites 2τ y 2,785τ; el código amplifica exactamente por R) · anti_windup · derivada · métricas (contra fórmulas de primer orden) · resultados (ida y vuelta del CSV) · arranque · panel (Qt offscreen) · capas.
 
 ## Deuda técnica conocida
 1. El estado del impulso vive en atributos de la función `impulso_probabilistico` (`reiniciar_impulso()`).

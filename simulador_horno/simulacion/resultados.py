@@ -93,3 +93,28 @@ def leer(ruta):
             for c, v in zip(columnas, linea.split(sep)):
                 series[c].append(float(v.replace(dec, ".")))
     return parametros, series
+
+
+def listar(carpeta=None, maximo=None):
+    """Archivos de corridas guardadas, del más reciente al más antiguo."""
+    carpeta = Path(carpeta) if carpeta else carpeta_resultados()
+    if not carpeta.is_dir():
+        return []
+    archivos = sorted(carpeta.glob("*.csv"), key=lambda r: r.stat().st_mtime, reverse=True)
+    return archivos[:maximo] if maximo else archivos
+
+
+def numero(texto):
+    """Convierte un valor guardado (coma decimal) a float; None si está vacío o no es número."""
+    try:
+        return float(texto.replace(limites.CSV_DECIMAL, "."))
+    except (AttributeError, ValueError):
+        return None
+
+
+def metricas_guardadas(parametros):
+    """Métricas de la cabecera del CSV (``metrica_*``) como floats."""
+    return {
+        clave[len("metrica_"):]: numero(valor)
+        for clave, valor in parametros.items() if clave.startswith("metrica_")
+    }

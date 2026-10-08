@@ -33,7 +33,7 @@ El simulador permite analizar de forma numérica y visual el comportamiento din�
 | `1` Configurar PID | Ganancias Kp, Ki, Kd |
 | `2` Configurar horno | T ambiente, setpoint, T máx. de equilibrio, **T inicial** (arranque en frío o en caliente), τ, Δt |
 | `3` Fallos y perturbaciones | Activa o desactiva 6 perturbaciones: 3 sobre la **medición** y 3 sobre el **horno real** (ver abajo) |
-| `4` Error de impulso | Activa impulsos aleatorios (~6 por hora simulada) |
+| `4` Comparar corridas | **Dashboard**: elige corridas guardadas y las compara (tabla de métricas + curvas superpuestas) |
 | `5` Anti-windup | Ninguno, recorte de la integral o **integración condicional** (por defecto) |
 | `6` Velocidad y duración | x1, x10, **x60**, x600 o máxima · 30 min a 8 h (**2 h**) o sin límite |
 | `7` Método numérico | **Euler**, Heun (RK2) o Runge-Kutta 4 · comparación con la solución exacta · estabilidad |
@@ -58,7 +58,7 @@ El simulador permite analizar de forma numérica y visual el comportamiento din�
 | **Red eléctrica** | Opción 3: *Fluctuación de la red* | La temperatura oscila ±3 °C alrededor del setpoint |
 | **Sensor vs. realidad** | Opción 3: *Ruido del termopar* | El controlador lee ±1 °C de ruido, pero el horno apenas se mueve |
 
-Para comparar dos corridas, cambia **una sola cosa** a la vez y usa la **misma duración**.
+Para comparar dos corridas, cambia **una sola cosa** a la vez, usa la **misma duración** y luego abre la **opción 4 (Comparar corridas)**.
 
 ---
 
@@ -102,6 +102,15 @@ Al terminar cada corrida (o al detenerla, como "corrida incompleta") la consola 
 | **ISE** = ∫e² dt | Integral del error al cuadrado, en °C²·min: **castiga mucho los errores grandes**, como sobrepasos fuertes o subidas lentas |
 
 Para IAE e ISE, **menor es mejor**, y solo son comparables entre corridas de la **misma duración**. En este horno casi todo su valor viene de la subida inicial, limitada por la física; las diferencias aparecen cuando algo va mal (por ejemplo, sin anti-windup el IAE sube ~19 %).
+
+---
+
+## Comparar corridas: dashboard (opción 4)
+
+Muestra las **7 corridas guardadas más recientes**. Con `Enter` se marca o desmarca cada una (●/○); por defecto vienen marcadas las 2 últimas. Al elegir **Comparar seleccionadas**:
+
+- la consola muestra una **tabla lado a lado** (A, B, C…) con la configuración de cada corrida (método, Δt, ganancias, anti-windup, T inicial, perturbaciones, duración) y sus métricas (sobrepaso, tiempos, error final, IAE e ISE). Avisa si las duraciones difieren, porque entonces IAE e ISE no son comparables;
+- se abre una ventana con las **curvas superpuestas** de temperatura, error y potencia u, un color por corrida. En esta ventana sí se puede hacer zoom con la rueda.
 
 ---
 

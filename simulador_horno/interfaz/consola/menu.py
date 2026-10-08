@@ -5,7 +5,7 @@ ITEMS = [
     ("1", "Configurar PID", "Ganancias Kp, Ki, Kd"),
     ("2", "Configurar horno", "T ambiente, setpoint, T máx., τ, Δt"),
     ("3", "Fallos y perturbaciones", "Sobre la medición o sobre el horno real"),
-    ("4", "Error de impulso", "Impulsos térmicos probabilísticos"),
+    ("4", "Comparar corridas", "Dashboard de las corridas guardadas"),
     ("5", "Anti-windup", "Ninguno, recorte o integración condicional"),
     ("6", "Velocidad y duración", "Ritmo de la corrida y cuándo se detiene"),
     ("7", "Método numérico", "Euler, Heun (RK2) o Runge-Kutta 4"),

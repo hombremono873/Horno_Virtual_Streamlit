@@ -1,4 +1,4 @@
-"""Formularios de configuración: PID, horno, perturbaciones, anti-windup,
+"""Formularios de configuración: PID, horno, perturbaciones, comparación de corridas, anti-windup,
 velocidad y método numérico.
 
 Cada formulario escribe directamente sobre los módulos de ``configuracion`` para que
@@ -14,12 +14,15 @@ from simulador_horno.configuracion import parametros_simulacion as sim
 from simulador_horno.control.anti_windup import NOMBRES as NOMBRES_ANTI_WINDUP
 from simulador_horno.interfaz.consola import marco
 from simulador_horno.interfaz.consola.comparacion import resumen_comparacion
+from simulador_horno.interfaz.consola.dashboard import etiqueta, nota_comparacion, tabla_comparativa
 from simulador_horno.interfaz.consola.estabilidad import resumen_estabilidad
 from simulador_horno.interfaz.graficas.comparacion import VentanaComparacion
+from simulador_horno.interfaz.graficas.dashboard import VentanaDashboard
 from simulador_horno.interfaz.graficas.estabilidad import VentanaEstabilidad
 from simulador_horno.numerico.comparacion import DTS_COMPARACION, HORIZONTE, comparar
 from simulador_horno.numerico.estabilidad import FRACCIONES_TAU, estudiar
 from simulador_horno.numerico.integradores import METODOS, NOMBRES as NOMBRES_METODOS
+from simulador_horno.simulacion import resultados
 
 console = marco.console
 
@@ -156,32 +159,57 @@ def configurar_perturbaciones():
     marco.resumen("Perturbaciones", {"activas": ", ".join(activas()) or "ninguna (horno ideal)"})
 
 
-def _conmutar(titulo, descripcion, atributo, migas):
-    actual = getattr(horno, atributo)
-    estado = "[bold green]ACTIVADA[/]" if actual else "[dim]desactivada[/]"
-    ayuda = Text.from_markup(f"{descripcion}\n\nEstado actual: {estado}")
-    marco.cabecera_seccion(titulo, ayuda, migas=migas)
-    nuevo = marco.confirmar("¿Activar esta perturbación?", actual)
-    setattr(horno, atributo, nuevo)
-    marco.resumen(titulo, {"estado": "activada" if nuevo else "desactivada"})
+# ----------------------------------------------------------------------
+# Comparar corridas guardadas: dashboard (opción 4)
+# ----------------------------------------------------------------------
+MAX_CORRIDAS = 7   # las más recientes; con Comparar y Volver caben en las teclas 1-9
 
 
-def configurar_error_oscilante():
-    _conmutar(
-        "ERROR OSCILANTE",
-        "Suma al error una componente senoidal suave más ruido aleatorio.",
-        "error_oscilante",
-        ["Error oscilante"],
+def comparar_corridas():
+    """Elige corridas guardadas (Enter marca / desmarca) y las compara."""
+    archivos = resultados.listar(maximo=MAX_CORRIDAS)
+    if not archivos:
+        ayuda = Text.from_markup(
+            "Aún no hay corridas guardadas en\n"
+            f"[b]{resultados.carpeta_resultados()}[/b]\n\n"
+            "Cada simulación (opción 8) se guarda allí al terminar."
+        )
+        marco.cabecera_seccion("COMPARAR CORRIDAS", ayuda, migas=["Comparar corridas"])
+        return
+
+    leidas = [(ruta, *resultados.leer(ruta)) for ruta in archivos]   # (ruta, parametros, series)
+    marcadas, indice = set(range(min(2, len(leidas)))), 0           # por defecto, las 2 últimas
+    while True:
+        items = []
+        for i, (_, parametros, _) in enumerate(leidas, 1):
+            m = resultados.metricas_guardadas(parametros)
+            marca = "●" if i - 1 in marcadas else "○"
+            items.append((str(i), f"{marca} {etiqueta(parametros)}",
+                          f"sobrepaso {m.get('sobrepaso_pct') or 0:.2f} % · "
+                          f"IAE {(m.get('iae') or 0) / 60:,.0f} °C·min · "
+                          f"completa: {parametros.get('corrida_completa', '?')}"))
+        n = len(items)
+        items.append((str(n + 1), f"Comparar seleccionadas ({len(marcadas)})", "Abre la tabla y las gráficas"))
+        items.append((str(n + 2), "Volver", "Volver al menú sin comparar"))
+        eleccion = marco.menu_interactivo("COMPARAR CORRIDAS  (Enter marca / desmarca)", items,
+                                          migas=["Comparar corridas"], inicial=indice)
+        indice = int(eleccion) - 1
+        if indice < n:
+            marcadas ^= {indice}
+        elif indice == n and marcadas:
+            break
+        elif indice > n:
+            return
+
+    elegidas = [leidas[i] for i in sorted(marcadas)]
+    ayuda = Text.from_markup(
+        "Las gráficas se abren en otra ventana (puedes hacer zoom con la rueda);\n"
+        "ciérrala para volver al menú."
     )
-
-
-def configurar_error_impulso():
-    _conmutar(
-        "ERROR DE IMPULSO",
-        "Inyecta impulsos térmicos probabilísticos de signo alternante.",
-        "flag_error",
-        ["Error de impulso"],
-    )
+    marco.cabecera_seccion("COMPARAR CORRIDAS", ayuda, migas=["Comparar corridas"])
+    console.print(tabla_comparativa([(ruta, p) for ruta, p, _ in elegidas]))
+    console.print(nota_comparacion([(ruta, p) for ruta, p, _ in elegidas]))
+    VentanaDashboard([(p, series) for _, p, series in elegidas]).mostrar_y_esperar()
 
 
 # ----------------------------------------------------------------------

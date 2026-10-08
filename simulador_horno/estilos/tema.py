@@ -57,3 +57,6 @@ G_METODOS = {
     "heun": "#89b4fa",     # azul
     "rk4": "#a6e3a1",      # verde
 }
+
+# Dashboard: un color por corrida comparada (A, B, C...)
+G_CORRIDAS = ("#89b4fa", "#f38ba8", "#a6e3a1", "#f9e2af", "#cba6f7", "#fab387", "#94e2d5")

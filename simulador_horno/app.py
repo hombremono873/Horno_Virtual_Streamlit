@@ -16,7 +16,7 @@ ACCIONES = {
     "1": formularios.configurar_pid,
     "2": formularios.configurar_horno,
     "3": formularios.configurar_perturbaciones,
-    "4": formularios.configurar_error_impulso,
+    "4": formularios.comparar_corridas,
     "5": formularios.configurar_anti_windup,
     "6": formularios.configurar_velocidad,
     "7": formularios.configurar_metodo,
