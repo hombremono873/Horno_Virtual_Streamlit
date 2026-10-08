@@ -2,6 +2,8 @@
 
 Documento para retomar el trabajo en esta carpeta (`SImuladorTempStreamlit`) sin perder el contexto del proyecto de escritorio. **Léelo completo antes de empezar.** Fue escrito el 2026-10-08, al terminar la versión de escritorio.
 
+> **Avance (2026-10-08, rama `fase1-estado`):** pasos 2.2 a 2.4 hechos (2.1, el remoto, lo cambia el usuario). **Fase 1 terminada.** El usuario decidió que este repositorio es **solo web**: se retiraron la consola, el monitor Qt y `main.exe`, así que el punto del prompt "adapta la versión de consola" ya no aplica. Siguiente: Fase 2. Detalle técnico en `CLAUDE.md`.
+
 ## 1. Origen de esta copia
 - Copia de `C:\Users\usuario\Desktop\SimuladorTemperatura\simulador`, la versión de **escritorio**, que sigue viva en GitHub: `hombremono873/Hornovirtual_2026`, rama `main`, commit `ff24dac`.
 - La versión de escritorio está **completa y probada**: 141 pruebas y GitHub Actions en verde. No hay que hacerle nada más salvo que el usuario lo pida.
