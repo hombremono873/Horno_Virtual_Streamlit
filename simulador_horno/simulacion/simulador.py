@@ -20,6 +20,7 @@ from simulador_horno.configuracion import parametros_horno as vhorno
 from simulador_horno.configuracion import parametros_pid as vpid
 from simulador_horno.configuracion import parametros_simulacion as vsim
 from simulador_horno.estilos import tema
+from simulador_horno.interfaz.alarmas import sonora
 from simulador_horno.interfaz.consola import marco
 from simulador_horno.interfaz.consola.metricas import tabla_metricas
 from simulador_horno.interfaz.consola.tabla_vivo import generar_tabla
@@ -40,6 +41,7 @@ class Simulador:
         horas = vsim.duracion_horas
         self.duracion = None if horas is None else horas * 3600.0   # s simulados; fija por corrida
         self.metricas = None   # se calculan una vez, al terminar o al detener la corrida
+        self._impulsos_avisados = 0
         self.panel = None
         self._acumulado = 0.0
         self._inicio_real = None
@@ -82,6 +84,7 @@ class Simulador:
                 while True:
                     inicio = time.monotonic()
                     self._avanzar_refresco(inicio, periodo)
+                    self._avisar_impulsos()
                     live.update(self._tabla())
                     historial = self.motor.historial
                     self.panel.actualizar(
@@ -98,6 +101,12 @@ class Simulador:
             self._finalizar(interrumpido)
 
     # ---- helpers --------------------------------------------------
+    def _avisar_impulsos(self):
+        """El motor solo cuenta los impulsos; avisar es tarea de la interfaz."""
+        if self.motor.impulsos > self._impulsos_avisados:
+            sonora.alarma_impulso(True)   # un pitido aunque hayan sido varios en el refresco
+            self._impulsos_avisados = self.motor.impulsos
+
     def _calcular_metricas(self):
         h = self.motor.historial
         self.metricas = metricas.calcular(h.tiempos, h.temperaturas, vhorno.T_SET)
@@ -149,6 +158,8 @@ class Simulador:
             duracion=self.duracion,
             terminada=self.terminada,
             metricas=self.metricas,
+            impulsos=m.impulsos if vhorno.flag_error else None,
+            impulso_activo=m.impulso_activo,
         )
 
     @staticmethod

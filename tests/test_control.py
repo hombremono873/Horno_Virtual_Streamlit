@@ -5,7 +5,6 @@ import pytest
 
 from simulador_horno.configuracion import parametros_horno as vhorno
 from simulador_horno.control.escalado import escalar_u
-from simulador_horno.interfaz.alarmas import sonora
 from simulador_horno.simulacion.motor import Motor
 
 HORAS = 4
@@ -18,7 +17,6 @@ def test_escalar_u_satura_en_0_1(u_bruto, esperado):
 
 @pytest.mark.parametrize("perturbaciones", [False, True])
 def test_u_nunca_sale_de_0_1(perturbaciones, monkeypatch):
-    monkeypatch.setattr(sonora, "alarma_impulso", lambda _: None)   # sin pitidos en pruebas
     random.seed(1234)
     vhorno.error_oscilante = vhorno.flag_error = perturbaciones
     motor = Motor()

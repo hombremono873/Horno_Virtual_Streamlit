@@ -5,7 +5,6 @@ import pytest
 
 from simulador_horno.configuracion import parametros_horno as vhorno
 from simulador_horno.configuracion import parametros_pid as vpid
-from simulador_horno.interfaz.alarmas import sonora
 from simulador_horno.simulacion.motor import Motor
 
 
@@ -16,7 +15,6 @@ def test_sin_pico_en_el_primer_paso():
 
 def test_equivale_a_derivar_el_error_con_setpoint_fijo(monkeypatch):
     """Con T_SET constante, −Δmedida = Δerror: misma acción D salvo el primer paso."""
-    monkeypatch.setattr(sonora, "alarma_impulso", lambda _: None)
     random.seed(3)
     vhorno.error_oscilante = vhorno.flag_error = True   # también con perturbaciones
     motor = Motor()

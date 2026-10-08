@@ -48,7 +48,7 @@ def _barra(valor, minimo, maximo, ancho=32, color=tema.C_ACENTO):
 
 
 def generar_tabla(t, T, T_set, u, error, pid, horno, acciones, velocidad, t_real, metodo,
-                  duracion=None, terminada=False, metricas=None):
+                  duracion=None, terminada=False, metricas=None, impulsos=None, impulso_activo=False):
     """``duracion``: segundos simulados de la corrida (None = sin límite).
 
     Al terminar, las barras de nivel se sustituyen por la tabla de
@@ -118,7 +118,11 @@ def generar_tabla(t, T, T_set, u, error, pid, horno, acciones, velocidad, t_real
     else:
         ayuda = Text("Cierra la ventana del monitor o pulsa Ctrl+C para detener.",
                      style=tema.C_TENUE, justify="center")
-        aviso = Text()
+        aviso = Text(justify="center")
+        if impulsos is not None:   # perturbación de impulsos activada
+            aviso.append(f"Impulsos: {impulsos}", style=tema.C_TENUE)
+            if impulso_activo:
+                aviso.append("   ⚡ IMPULSO", style=f"reverse {tema.C_AVISO}")
 
     cuerpo = Group(
         Align.center(reloj),

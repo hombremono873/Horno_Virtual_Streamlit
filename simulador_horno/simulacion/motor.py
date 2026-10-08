@@ -10,7 +10,7 @@ from simulador_horno.configuracion import parametros_pid as vpid
 from simulador_horno.configuracion import parametros_simulacion as vsim
 from simulador_horno.control.pid import actualizar_pid
 from simulador_horno.control.senal_error import construir_error
-from simulador_horno.modelo.perturbaciones import reiniciar_impulso
+from simulador_horno.modelo.perturbaciones import impulso_activo, reiniciar_impulso
 from simulador_horno.numerico.integradores import METODOS
 from simulador_horno.simulacion.historial import Historial
 
@@ -27,6 +27,7 @@ class Motor:
         self.t = 0.0
         self.u = 0.0
         self.error = vhorno.T_SET - self.T
+        self.impulsos = 0   # impulsos ocurridos en la corrida (la interfaz los avisa)
         self.historial = Historial(max_muestras, intervalo)
         self.historial.limpiar()
 
@@ -42,7 +43,9 @@ class Motor:
 
     # ---- un paso de simulación --------------------------------------
     def paso(self):
-        error = construir_error(self.t, self.T)
+        error, impulso_nuevo = construir_error(self.t, self.T)
+        if impulso_nuevo:
+            self.impulsos += 1
         u = actualizar_pid(error, vhorno.T_SET - error)   # medida = lo que "lee" el controlador
         # se registra ANTES de integrar: cada muestra es coherente en el
         # instante t (T(t), el error visto en t y la u decidida en t)
@@ -51,6 +54,10 @@ class Motor:
         self.t += vhorno.DT
         self.u, self.error = u, error
         return u, error
+
+    @property
+    def impulso_activo(self):
+        return vhorno.flag_error and impulso_activo()
 
     def avanzar(self, pasos):
         """Ejecuta ``pasos`` pasos seguidos."""

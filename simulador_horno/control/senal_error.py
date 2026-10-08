@@ -5,19 +5,22 @@
 Los conmutadores de perturbación viven en la capa de interfaz
 (``interfaz.consola.formularios``); aquí solo se calcula el error.
 
-Nota de arquitectura: la alarma sonora del impulso se dispara aquí para
-reproducir el comportamiento original. En una iteración futura conviene
-que sea la capa de simulación quien decida notificar el evento.
+Sin E/S: el comienzo de un impulso se INFORMA al llamador (el motor) y es
+la interfaz quien decide cómo avisarlo (pitido, indicador en la tabla).
 """
 from simulador_horno.configuracion import limites
 from simulador_horno.configuracion import parametros_horno as vhorno
-from simulador_horno.interfaz.alarmas import sonora
 from simulador_horno.modelo.perturbaciones import get_ruido, perturbacion_total
 
 
 def construir_error(t, T):
-    """Error base (setpoint - temperatura) más las perturbaciones activas."""
+    """Error base (setpoint - temperatura) más las perturbaciones activas.
+
+    Devuelve ``(error, impulso_nuevo)``; ``impulso_nuevo`` es True solo en
+    el paso en que comienza un impulso.
+    """
     error = vhorno.T_SET - T
+    impulso_nuevo = False
 
     if vhorno.error_oscilante:
         error += get_ruido(t)
@@ -29,7 +32,6 @@ def construir_error(t, T):
             duracion=limites.DURACION_IMPULSO,
             magnitud=limites.MAGNITUD_IMPULSO,
         )
-        sonora.alarma_impulso(impulso_nuevo)   # suena una vez, al empezar el impulso
         error += vhorno.delta_T
 
-    return error
+    return error, impulso_nuevo

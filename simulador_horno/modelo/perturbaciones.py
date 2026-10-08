@@ -53,6 +53,11 @@ def impulso_probabilistico(t, dt, tasa_hora, duracion, magnitud):
 reiniciar_impulso()
 
 
+def impulso_activo():
+    """True mientras dura un impulso."""
+    return impulso_probabilistico.activo
+
+
 def perturbacion_total(t, dt, tasa_hora, duracion, magnitud):
     """Perturbación total en el instante ``t``: ruido + senoide + impulso.
 
