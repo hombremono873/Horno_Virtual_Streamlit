@@ -1,20 +1,14 @@
-"""Dashboard de comparación de corridas guardadas."""
-import os
+"""Lectura de las corridas guardadas: la base del dashboard de comparación."""
+import time
+from datetime import datetime, timedelta
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+import pytest
 
-import time  # noqa: E402
-from datetime import datetime, timedelta  # noqa: E402
-
-import pytest  # noqa: E402
-from rich.console import Console  # noqa: E402
-
-from simulador_horno.configuracion import parametros_horno as vhorno  # noqa: E402
-from simulador_horno.configuracion import parametros_pid as vpid  # noqa: E402
-from simulador_horno.interfaz.consola.dashboard import nota_comparacion, tabla_comparativa  # noqa: E402
-from simulador_horno.simulacion import resultados  # noqa: E402
-from simulador_horno.simulacion.metricas import calcular  # noqa: E402
-from simulador_horno.simulacion.motor import Motor  # noqa: E402
+from simulador_horno.configuracion import parametros_horno as vhorno
+from simulador_horno.configuracion import parametros_pid as vpid
+from simulador_horno.simulacion import resultados
+from simulador_horno.simulacion.metricas import calcular
+from simulador_horno.simulacion.motor import Motor
 
 
 def guardar_corrida(carpeta, minutos, minuto, **parametros):
@@ -38,12 +32,6 @@ def dos_corridas(tmp_path):
     return tmp_path, a, b
 
 
-def texto(renderizable):
-    c = Console(width=140, color_system=None, record=True)
-    c.print(renderizable)
-    return c.export_text()
-
-
 def test_listar_del_mas_reciente_al_mas_antiguo(dos_corridas):
     carpeta, a, b = dos_corridas
     assert resultados.listar(carpeta) == [b, a]
@@ -54,33 +42,7 @@ def test_listar_del_mas_reciente_al_mas_antiguo(dos_corridas):
 def test_numero_y_metricas_guardadas(dos_corridas):
     assert resultados.numero("0,54") == pytest.approx(0.54)
     assert resultados.numero("") is None and resultados.numero(None) is None
-    _, a, _ = dos_corridas
+    _, a, b = dos_corridas
     metricas = resultados.metricas_guardadas(resultados.leer(a)[0])
     assert metricas["sobrepaso_pct"] == pytest.approx(0.54, abs=0.05)
-
-
-def test_tabla_comparativa(dos_corridas):
-    carpeta, a, b = dos_corridas
-    corridas = [(r, resultados.leer(r)[0]) for r in (a, b)]
-    salida = texto(tabla_comparativa(corridas))
-    for esperado in ("A", "B", "condicional", "ninguno", "Sobrepaso", "IAE"):
-        assert esperado in salida
-    assert "comparables" not in texto(nota_comparacion(corridas))   # misma duración
-
-
-def test_avisa_si_las_duraciones_difieren(tmp_path):
-    a = guardar_corrida(tmp_path, 30, 0)
-    b = guardar_corrida(tmp_path, 60, 1)
-    corridas = [(r, resultados.leer(r)[0]) for r in (a, b)]
-    assert "no son comparables" in texto(nota_comparacion(corridas))
-
-
-def test_ventana_dibuja_una_curva_por_corrida(dos_corridas):
-    from simulador_horno.interfaz.graficas.dashboard import VentanaDashboard
-    _, a, b = dos_corridas
-    v = VentanaDashboard([resultados.leer(r) for r in (a, b)])
-    try:
-        for grafica in (v.p_temp, v.p_err, v.p_u):
-            assert len(grafica.listDataItems()) == 2
-    finally:
-        v.win.close()
+    assert resultados.leer(b)[0]["anti_windup"] == "ninguno"

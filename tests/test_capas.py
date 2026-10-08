@@ -1,27 +1,22 @@
-"""La lógica de simulación funciona sin consola (rich) ni ventana (Qt)."""
+"""La lógica de simulación no depende de ninguna interfaz.
+
+El núcleo (modelo, control, numérico y simulación) debe poder importarse y
+probarse sin Streamlit ni Plotly: la interfaz web es solo una capa encima.
+"""
 import subprocess
 import sys
 
-
-def test_motor_no_importa_rich_ni_qt():
-    codigo = (
-        "import sys; import simulador_horno.simulacion.motor, simulador_horno.simulacion.reloj, simulador_horno.simulacion.metricas, simulador_horno.simulacion.resultados; "
-        "malos = [m for m in ('rich', 'PySide6', 'pyqtgraph') if m in sys.modules]; "
-        "assert not malos, malos"
-    )
-    resultado = subprocess.run([sys.executable, "-c", codigo], capture_output=True, text=True)
-    assert resultado.returncode == 0, resultado.stderr
+INTERFACES = ("streamlit", "plotly", "pandas", "rich", "PySide6", "pyqtgraph")
 
 
-def test_la_logica_no_importa_la_interfaz():
-    """Control, modelo, numérico y motor no deben depender de la interfaz
-    (antes senal_error.py disparaba la alarma sonora)."""
+def test_el_nucleo_no_importa_ninguna_interfaz():
     codigo = (
         "import sys\n"
         "import simulador_horno.control.senal_error, simulador_horno.control.pid\n"
         "import simulador_horno.modelo.horno, simulador_horno.numerico.estabilidad\n"
-        "import simulador_horno.simulacion.motor\n"
-        "malos = [m for m in sys.modules if m.startswith('simulador_horno.interfaz')]\n"
+        "import simulador_horno.simulacion.motor, simulador_horno.simulacion.reloj\n"
+        "import simulador_horno.simulacion.metricas, simulador_horno.simulacion.resultados\n"
+        f"malos = [m for m in {INTERFACES!r} if m in sys.modules]\n"
         "assert not malos, malos\n"
     )
     resultado = subprocess.run([sys.executable, "-c", codigo], capture_output=True, text=True)

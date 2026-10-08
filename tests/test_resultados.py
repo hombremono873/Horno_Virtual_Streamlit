@@ -58,23 +58,3 @@ def test_el_historial_registra_la_potencia(corrida):
     assert len(h.potencias) == len(h.tiempos)
     assert all(0.0 <= u <= 1.0 for u in h.potencias)
     assert h.potencias[0] == 1.0          # al arrancar frío va a potencia plena
-
-
-def test_simulador_guarda_y_avisa_si_falla(monkeypatch, tmp_path):
-    from simulador_horno.simulacion.simulador import Simulador
-    sim = Simulador()
-    sim.motor.avanzar(3000)
-    monkeypatch.setattr(resultados, "carpeta_resultados", lambda: tmp_path)
-    ruta = sim._guardar_resultados()
-    assert ruta is not None and ruta.parent == tmp_path
-
-    # carpeta imposible (es un archivo): no debe romper el simulador
-    archivo = tmp_path / "no_es_carpeta"
-    archivo.write_text("x")
-    monkeypatch.setattr(resultados, "carpeta_resultados", lambda: archivo / "sub")
-    assert sim._guardar_resultados() is None
-
-
-def test_corrida_vacia_no_se_guarda():
-    from simulador_horno.simulacion.simulador import Simulador
-    assert Simulador()._guardar_resultados() is None

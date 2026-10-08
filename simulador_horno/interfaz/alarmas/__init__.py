@@ -1,1 +1,0 @@
-"""Señales sonoras del simulador."""

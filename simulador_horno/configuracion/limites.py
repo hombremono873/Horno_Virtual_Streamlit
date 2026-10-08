@@ -25,7 +25,7 @@ VELOCIDADES = {
 DURACIONES_HORAS = (0.5, 1, 2, 4, 8, None)
 
 # --- Simulación ------------------------------------------------
-REFRESCO_HZ = 4            # refrescos por segundo real de la tabla rich y las gráficas
+REFRESCO_HZ = 4            # refrescos por segundo real del modo en vivo
 INTERVALO_MUESTREO = 1.0   # segundos SIMULADOS entre muestras del historial
 HORAS_HISTORIAL = 12       # horas simuladas que conserva el historial (el arranque no se pierde)
 MAX_MUESTRAS = int(HORAS_HISTORIAL * 3600 / INTERVALO_MUESTREO)
@@ -69,7 +69,7 @@ RED_PERIODOS = (600, 170)      # s
 AMBIENTE_AMPLITUD = 10.0       # °C
 AMBIENTE_PERIODO = 3600        # s
 
-# --- Escala de color térmico (interfaz.graficas.panel) ---
+# --- Escala de color térmico (franja térmica de las gráficas) ---
 TEMP_MIN_COLOR = 30
 TEMP_MAX_COLOR = 1200
 

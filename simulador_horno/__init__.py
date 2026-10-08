@@ -7,6 +7,5 @@ Paquete organizado por responsabilidad:
 - ``control``       : el controlador — PID, anti-windup, saturación y señal de error.
 - ``numerico``      : métodos numéricos de integración (Heun, Runge-Kutta 4).
 - ``simulacion``    : orquestación del bucle de simulación e historial.
-- ``interfaz``      : lo que ve el usuario — consola rich, monitor Qt, alarmas.
 - ``estilos``       : paleta y medidas visuales compartidas.
 """
