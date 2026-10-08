@@ -49,3 +49,11 @@ G_HOLGURA_ESCALA = 1.15      # 15 % de aire alrededor de la máxima desviación
 VENTANA_TITULO = "Monitor del horno — Simulador PID"
 VENTANA_ANCHO = 1280
 VENTANA_ALTO = 820
+
+# Comparación de métodos numéricos (interfaz.graficas.comparacion)
+G_EXACTA = "#f9e2af"       # solución analítica (línea discontinua)
+G_METODOS = {
+    "euler": "#f38ba8",    # rojo suave
+    "heun": "#89b4fa",     # azul
+    "rk4": "#a6e3a1",      # verde
+}

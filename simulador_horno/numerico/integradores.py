@@ -84,6 +84,10 @@ NOMBRES = {
     "rk4": "Runge-Kutta 4",
 }
 
+# Teoría de cada método: orden de convergencia y evaluaciones de dT/dt por paso.
+ORDEN = {"euler": 1, "heun": 2, "rk4": 4}
+EVALUACIONES = {"euler": 1, "heun": 2, "rk4": 4}
+
 METODOS = {
     "euler": simular_horno,
     "heun": simular_horno_heun,

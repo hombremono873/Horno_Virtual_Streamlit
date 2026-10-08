@@ -48,7 +48,8 @@ simulador_horno/
 │                     #                        parametros_electricos, limites
 ├── modelo/           # ¿qué se simula?        horno (ecuación + Euler), perturbaciones, actuador
 ├── control/          # ¿quién controla?       pid, anti_windup, escalado, senal_error
-├── numerico/         # ¿con qué método?       integradores (Euler, Heun, RK4 elegibles; tabla METODOS)
+├── numerico/         # ¿con qué método?       integradores (Euler, Heun, RK4 elegibles; tabla METODOS),
+│                     #                        comparacion (vs. solución exacta, orden de convergencia)
 ├── simulacion/       # ¿quién coordina?       motor (lógica), reloj (velocidad), historial, simulador (visual)
 ├── interfaz/         # ¿qué ve el usuario?    consola/, graficas/, alarmas/
 └── estilos/          # ¿cómo se ve?           tema (paleta y medidas)
@@ -114,7 +115,9 @@ dT/dt = (1/TAU)·(T_AMB − T) + B·u          u ∈ [0, 1],  B = (T_MAX_EQ − 
 T[k+1] = T[k] + DT·dT/dt                    (Euler explícito)
 ```
 
-Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra resultados NaN o infinitos (devuelve `T_actual`). [integradores.py](simulador_horno/numerico/integradores.py) contiene la misma ecuación con Heun (RK2) y RK4 (`simular_horno_heun` y `simular_horno_runge`). La tabla `METODOS` asocia `"euler"`, `"heun"` y `"rk4"` con su función de paso, todas con firma `(T, u) -> T_nuevo`, y `NOMBRES` guarda el nombre visible. El usuario elige el método en la opción 7 del menú. `Motor` lo fija al crearse (`self.metodo`, `self._integrar`), así que no cambia a mitad de una corrida. `tests/test_integradores.py` comprueba contra la solución exacta que el orden de convergencia observado es 1, 2 y 4.
+Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra resultados NaN o infinitos (devuelve `T_actual`). [integradores.py](simulador_horno/numerico/integradores.py) contiene la misma ecuación con Heun (RK2) y RK4 (`simular_horno_heun` y `simular_horno_runge`). La tabla `METODOS` asocia `"euler"`, `"heun"` y `"rk4"` con su función de paso, todas con firma `(T, u) -> T_nuevo`, y `NOMBRES` guarda el nombre visible. El usuario elige el método en la opción 7 del menú. `Motor` lo fija al crearse (`self.metodo`, `self._integrar`), así que no cambia a mitad de una corrida. `tests/test_integradores.py` comprueba contra la solución exacta que el orden de convergencia observado es 1, 2 y 4. `ORDEN` y `EVALUACIONES` guardan la teoría de cada método.
+
+**Comparación con la solución exacta** ([numerico/comparacion.py](simulador_horno/numerico/comparacion.py), sin E/S): `comparar()` integra a potencia plena (u = 1) desde `T_AMB` durante `HORIZONTE = 3600` s con cada método y cada Δt de `DTS_COMPARACION = (240, 120, 60, 30, 15)`. Devuelve un `ResultadoComparacion` con las `Trayectoria` (tiempos, temperaturas, errores, `error_maximo`, `evaluaciones`) y los órdenes observados `log(e1/e2)/log(dt1/dt2)`. Como los integradores leen `parametros_horno.DT`, `integrar()` lo cambia temporalmente y **siempre lo restaura** en un `finally`. La interfaz lo presenta con `interfaz/consola/comparacion.py` (tablas rich) e `interfaz/graficas/comparacion.py` (`VentanaComparacion`). Se accede desde el submenú de la opción 7, en la entrada "Comparar con la solución exacta".
 
 **Error** ([control/senal_error.py](simulador_horno/control/senal_error.py)): `error = T_SET − T`, más perturbaciones opcionales:
 - `error_oscilante` (opción 3 del menú): `get_ruido(t) = 20·sin(0.05·t) + U(−0.5, 1.5)`.
@@ -159,7 +162,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 - [formularios.py](simulador_horno/interfaz/consola/formularios.py) escribe directamente en los módulos de `configuracion/`. Contiene:
   - los conmutadores de perturbación (`_conmutar`);
   - `configurar_horno`, que pide `T_MAX_EQ` (no B), valida que `T_MAX_EQ > T_AMB`, `TAU > 0` y `DT > 0`, y llama a `recalcular_B`;
-  - `configurar_velocidad` y `configurar_metodo`, submenús con `menu_interactivo` cuyo último ítem es "Volver".
+  - `configurar_velocidad` y `configurar_metodo`, submenús con `menu_interactivo` cuyo último ítem es "Volver". El de método incluye "Comparar con la solución exacta", que llama a `comparar_metodos()`.
 - [tabla_vivo.py](simulador_horno/interfaz/consola/tabla_vivo.py): `generar_tabla(t, T, T_set, u, error, pid, horno, acciones, velocidad, t_real)` construye el panel de rich. Muestra el reloj (tiempo simulado en hh:mm:ss, velocidad y tiempo real), las lecturas, las barras (u en [0, 1]), los términos P/I/D y la configuración.
 - [interfaz/graficas/panel.py](simulador_horno/interfaz/graficas/panel.py): `PanelGraficas` es una única ventana `GraphicsLayoutWidget`.
   - Tiene cuatro vistas: temperatura frente al tiempo con la línea del setpoint, error frente al tiempo, el corte del horno coloreado por T (colorimetría) y la franja histórica de color, más una barra de escala en °C.
@@ -169,6 +172,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
   - Las curvas se diezman al dibujar (`setDownsampling(method="peak")`): con 12 h de historial, unas 43 200 muestras, cada refresco tarda ~25 ms.
   - Su API es `actualizar(tiempos, temps, errs, T, T_set)` (tiempos en segundos), `abierta` y `cerrar()`.
   - El modelo es **síncrono**: cada `actualizar` llama a `app.processEvents()`, sin hilos ni `QTimer`.
+- [interfaz/graficas/comparacion.py](simulador_horno/interfaz/graficas/comparacion.py): `VentanaComparacion(resultado)` es una ventana **estática** con tres vistas: las curvas frente a la exacta con el Δt mayor, el error absoluto en el tiempo en escala log y la convergencia log-log, cuya pendiente es el orden. `mostrar_y_esperar()` usa `app.exec()` y bloquea hasta que se cierra. Es compatible con el monitor síncrono en la misma sesión (verificado).
 
 ## Pruebas
 
@@ -182,6 +186,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 | `test_historial.py` | conserva ≥ 4 h; una muestra por segundo simulado sea cual sea DT |
 | `test_perturbaciones.py` | la tasa de impulsos no cambia con DT (semilla fija); el signo es constante en el impulso y alterna entre impulsos |
 | `test_integradores.py` | cada método converge a `T_MAX_EQ`; Euler > Heun > RK4 en error; orden observado 1, 2 y 4 frente a la solución exacta; el motor usa el método elegido |
+| `test_comparacion.py` | orden observado ≈ teórico para cada Δt; más orden, menos error; el costo en evaluaciones; Δt del usuario restaurado incluso si falla |
 | `test_capas.py` | `motor` y `reloj` no importan rich, PySide6 ni pyqtgraph |
 
 ## Cómo añadir cosas

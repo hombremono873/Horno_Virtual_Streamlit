@@ -118,7 +118,8 @@ simulador/
     │   └── senal_error.py           #   error = setpoint − T (+ perturbaciones)
     │
     ├── numerico/               # ¿CON QUÉ MÉTODO NUMÉRICO?
-    │   └── integradores.py          #   Euler, Heun (RK2) y Runge-Kutta 4 (elegibles en el menú)
+    │   ├── integradores.py          #   Euler, Heun (RK2) y Runge-Kutta 4 (elegibles en el menú)
+    │   └── comparacion.py           #   comparación con la solución exacta y orden de convergencia
     │
     ├── simulacion/             # ¿QUIÉN COORDINA?
     │   ├── motor.py                 #   clase Motor: lógica de cada paso, sin E/S
@@ -184,6 +185,15 @@ Elige con qué método se resuelve en cada paso la ecuación del horno,
 Un método de orden p reduce su error unas 2^p veces al dividir Δt a la mitad.
 Con el Δt por defecto (0,1 s) las curvas son casi idénticas; para ver la
 diferencia, aumenta Δt en la opción 2 (por ejemplo a 30 s) y compara.
+
+Dentro de esta opción, **"Comparar con la solución exacta"** integra la ecuación
+a potencia plena con los tres métodos y Δt = 240, 120, 60, 30 y 15 s, y la
+compara con la solución analítica `T(t) = T_eq + (T0 − T_eq)·e^(−t/τ)`:
+
+- en la consola, una tabla con el error máximo de cada método, el **orden de
+  convergencia observado** (≈ 1, 2 y 4) y el costo en evaluaciones de dT/dt;
+- en una ventana, las curvas frente a la exacta, el error en el tiempo y la
+  gráfica log-log de convergencia, donde la pendiente de cada recta es el orden.
 
 **Simulación (opción 8)**
 

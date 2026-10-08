@@ -12,6 +12,9 @@ from simulador_horno.configuracion import parametros_horno as horno
 from simulador_horno.configuracion import parametros_pid as pid
 from simulador_horno.configuracion import parametros_simulacion as sim
 from simulador_horno.interfaz.consola import marco
+from simulador_horno.interfaz.consola.comparacion import resumen_comparacion
+from simulador_horno.interfaz.graficas.comparacion import VentanaComparacion
+from simulador_horno.numerico.comparacion import DTS_COMPARACION, HORIZONTE, comparar
 from simulador_horno.numerico.integradores import METODOS, NOMBRES as NOMBRES_METODOS
 
 console = marco.console
@@ -185,14 +188,38 @@ _AYUDA_METODO = Text.from_markup(
 def configurar_metodo():
     claves = list(METODOS)
     items = [(str(i), NOMBRES_METODOS[c], _DESCRIPCION_METODO[c]) for i, c in enumerate(claves, 1)]
+    clave_comparar = str(len(items) + 1)
+    items.append((clave_comparar, "Comparar con la solución exacta",
+                  "Error y orden de convergencia de los tres métodos"))
     items.append((str(len(items) + 1), "Volver", "Conservar el método actual"))
     eleccion = marco.menu_interactivo(
         "MÉTODO NUMÉRICO", items, migas=["Método numérico"],
         inicial=claves.index(sim.metodo) if sim.metodo in claves else 0,
     )
+    if eleccion == clave_comparar:
+        comparar_metodos()
+        return
     indice = int(eleccion) - 1
     if indice < len(claves):
         sim.metodo = claves[indice]
 
     marco.cabecera_seccion("MÉTODO NUMÉRICO", _AYUDA_METODO, migas=["Método numérico"])
     marco.resumen("Método numérico", {"activo": NOMBRES_METODOS[sim.metodo]})
+
+
+_AYUDA_COMPARACION = Text.from_markup(
+    "Se integra la ecuación del horno a potencia plena (u = 1) desde T_AMB\n"
+    f"durante {HORIZONTE / 60:g} min con cada método y con Δt = "
+    f"{', '.join(f'{dt:g}' for dt in DTS_COMPARACION)} s, y se compara\n"
+    "con la solución analítica  T(t) = T_eq + (T0 − T_eq)·e^(−t/τ).\n\n"
+    "Las gráficas se abren en otra ventana; ciérrala para volver al menú."
+)
+
+
+def comparar_metodos():
+    """Compara Euler, Heun y RK4 con la solución exacta: tabla + gráficas."""
+    marco.cabecera_seccion("COMPARAR CON LA SOLUCIÓN EXACTA", _AYUDA_COMPARACION,
+                           migas=["Método numérico", "Comparar"])
+    resultado = comparar()
+    console.print(resumen_comparacion(resultado))
+    VentanaComparacion(resultado).mostrar_y_esperar()
