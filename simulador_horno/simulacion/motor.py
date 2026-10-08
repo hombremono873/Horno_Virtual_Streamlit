@@ -34,6 +34,7 @@ class Motor:
     def _reiniciar_estado():
         """Cada corrida empieza con el PID y las perturbaciones en cero."""
         vpid.error_prev = 0.0
+        vpid.medida_prev = None
         vpid.integral = 0.0
         vpid.derivada = 0.0
         vpid.proporcional = 0.0
@@ -42,7 +43,7 @@ class Motor:
     # ---- un paso de simulación --------------------------------------
     def paso(self):
         error = construir_error(self.t, self.T)
-        u = actualizar_pid(error)
+        u = actualizar_pid(error, vhorno.T_SET - error)   # medida = lo que "lee" el controlador
         self.T = self._integrar(self.T, u)
         self.historial.registrar(self.t, self.T, error)
         self.t += vhorno.DT

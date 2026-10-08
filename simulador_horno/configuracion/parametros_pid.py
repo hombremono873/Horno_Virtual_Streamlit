@@ -22,6 +22,7 @@ restringir_integral = 0.85
 # control.pid.actualizar_pid() en cada paso.
 # ----------------------------------------------------------------
 error_prev = 0.0
+medida_prev = None    # temperatura medida en el paso anterior (derivada sobre la medición)
 integral = 0.0
 derivada = 0.0        # término derivativo ya multiplicado por KD (para la tabla)
 proporcional = 0.0    # término proporcional (para la tabla)

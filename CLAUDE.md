@@ -131,8 +131,8 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 - Las perturbaciones se suman **al error del PID, no a la planta**.
 
 **PID** ([control/pid.py](simulador_horno/control/pid.py)):
-- `calcular_pid(error, error_prev, integral)` es **pura**. Integra con la regla del trapecio y deriva por diferencia hacia atrás. Devuelve `(u_escalado, integral, error, KD·derivada, KP·error)`.
-- `actualizar_pid(error)` llama a la anterior y persiste el estado en `parametros_pid`.
+- `calcular_pid(error, error_prev, integral, medida, medida_prev)` es **pura**. Integra con la regla del trapecio y deriva **sobre la medición**, `−(medida − medida_prev)/DT`, en lugar de sobre el error. Con el setpoint fijo da la misma acción D, pero evita el pico (*derivative kick*) cuando el error salta, como en el primer paso, donde antes D valía `KD·970/DT = 19 400`. Si `medida_prev` es `None`, D = 0. Devuelve `(u_escalado, integral, error, KD·derivada, KP·error)`.
+- `actualizar_pid(error, medida)` llama a la anterior y persiste el estado en `parametros_pid`, incluida `medida_prev`. `Motor` pasa `medida = T_SET − error`, lo que "lee" el controlador, perturbaciones incluidas, y pone `medida_prev = None` al iniciar cada corrida.
 - Anti-windup ([anti_windup.py](simulador_horno/control/anti_windup.py)), elegible en la opción 5 del menú (`parametros_pid.anti_windup`). `calcular_pid` calcula la integral nueva por trapecio y la salida sin saturar `u_bruta`, y `limitar(modo, integral_previa, integral_nueva, error, u_bruta)` decide qué integral se conserva:
   - `"ninguno"`: integra siempre. Con las ganancias por defecto la integral llega a ~1,6 millones y el sobrepaso es de ~29 %; sirve para mostrar el windup.
   - `"recorte"`: el método original, que reproduce bit a bit el comportamiento anterior. Si la integral supera `UMBRAL_INTEGRAL` se multiplica por `restringir_integral`. **Con KI bajo deja error permanente** (KI = 5: 28 °C; KP = 50 y KI = 2: 176 °C).
@@ -195,6 +195,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 | `test_comparacion.py` | orden observado ≈ teórico para cada Δt; más orden, menos error; el costo en evaluaciones; Δt del usuario restaurado incluso si falla |
 | `test_estabilidad.py` | factores R teóricos; límites 2τ, 2τ y 2,785τ; el código real amplifica exactamente por R; el comportamiento observado coincide con el veredicto |
 | `test_anti_windup.py` | sin anti-windup hay windup (sobrepaso > 20 %); el condicional llega al setpoint con cualquier sintonía; el recorte deja error con KI bajo; la regla de integración condicional |
+| `test_derivada.py` | sin pico de D en el primer paso; con el setpoint fijo equivale a derivar el error, también con perturbaciones; `medida_prev` se reinicia en cada corrida |
 | `test_capas.py` | `motor` y `reloj` no importan rich, PySide6 ni pyqtgraph |
 
 ## Cómo añadir cosas
@@ -214,7 +215,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 2. **El modo "recorte" (el anti-windup original) limita la sintonía.** Se conserva para comparar, pero ya no es el predeterminado. No acota la integral negativa, y la positiva queda topada en ~`UMBRAL_INTEGRAL`. En el equilibrio el horno necesita u ≈ 0,76, es decir `KI·integral/U_MAX ≈ 0,76`, así que con KI bajo queda **error permanente**. El modo "condicional", el predeterminado, no tiene este problema.
 3. El estado del impulso vive en atributos de la función `impulso_probabilistico` (se reinicia con `reiniciar_impulso()`). Debería ser un objeto.
 4. `senal_error.py` (capa de control) importa `interfaz.alarmas.sonora`. Es una violación de capas pendiente: debería notificar la simulación.
-5. En el primer paso `error_prev = 0`, lo que produce un *derivative kick* (`KD·error/DT`). Es inofensivo porque u ya satura en 1 al inicio.
+5. La integral del primer paso usa `error_prev = 0` en el trapecio: suma media área del primer error. El efecto es despreciable. El *derivative kick* ya está resuelto con la derivada sobre la medición.
 6. `modelo/actuador.py` (ángulo de conducción) existe pero no está conectado, así que PyInstaller no lo incluye en el exe.
 7. El README menciona la Ley de Fourier, pero el modelo solo tiene pérdidas tipo Newton más la entrada de control.
 8. **Modo "máxima":** simula ~70 h en 3 s reales. Con un historial de 12 h, a los pocos segundos ya no se ve el arranque.
