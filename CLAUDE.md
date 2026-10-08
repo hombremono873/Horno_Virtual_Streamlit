@@ -35,12 +35,16 @@ Flujo de una corrida: `Simulador.ejecutar` → por cada refresco (4 Hz reales) `
 No hay objetos de configuración: los parámetros son variables de módulo que el menú **muta en caliente**. Importa siempre el módulo (`from simulador_horno.configuracion import parametros_horno as vhorno`) y lee `vhorno.X` al usarlo; **nunca** `from ... import X`. Las listas del historial viven en `parametros_horno` (`tiempos`, `temperaturas`, `errores`, `potencias`) y `Historial` las comparte por referencia. `tests/conftest.py` guarda y restaura estos módulos en cada prueba (las listas, en sitio). Si añades un módulo `parametros_*`, inclúyelo en `_MODULOS`.
 
 ## Decisiones y trampas (no las rompas sin querer)
+- **Una sola ecuación:** `modelo.horno.derivada(T, u)` la usan Euler, Heun y RK4. Las perturbaciones del horno entran por `horno.entorno = (T_amb, perdida_extra, potencia)`, que el `Motor` fija **solo durante el paso** y restaura a `ENTORNO_IDEAL` en un `finally`. Con el entorno ideal el resultado es bit a bit el de la fórmula original (verificado con huellas).
 - **Física:** `B = (T_MAX_EQ − T_AMB)/TAU` es derivada. Llama a `recalcular_B()` tras cambiar `T_AMB`, `TAU` o `T_MAX_EQ`. `u ∈ [0, 1]`. `T_INICIAL` es la temperatura de arranque (= `T_AMB`, en frío).
 - **Velocidad ≠ física:** acelerar nunca cambia `DT`. N = factor/(HZ·DT), con la fracción acumulada. La duración se respeta con `pasos_restantes`, también en "máxima". Al terminar, el bucle **sigue refrescando sin avanzar** para que el monitor responda.
 - **`Motor` es puro** (sin rich ni Qt; lo verifica `test_capas`). Reinicia el estado del PID y del impulso en cada corrida, y **registra antes de integrar**, de modo que cada muestra `(t, T, error, u)` es del mismo instante.
 - **Los integradores leen `vhorno.DT`.** `comparacion.integrar` lo cambia temporalmente y lo restaura en un `finally`.
 - **PID:** la derivada va sobre la **medición** (`−Δmedida/DT`, `medida = T_SET − error`; vale 0 en el primer paso). Anti-windup por defecto **condicional** (no integra si `u_bruta > 1` con error positivo, ni si `u_bruta < 0` con error negativo). El modo **recorte** reproduce bit a bit el original y con KI bajo deja error permanente (documentado y probado).
-- **Perturbaciones:** se suman al **error**, no a la planta. El impulso se define por tasa por hora simulada (`p = 1 − e^(−tasa·DT/3600)`) y tiene signo constante durante cada impulso. `construir_error` devuelve `(error, impulso_nuevo)`; el `Motor` solo **cuenta** los impulsos (`impulsos`, `impulso_activo`), y el `Simulador` (interfaz) pita una vez por refresco con impulsos nuevos y muestra "⚡ IMPULSO" en la tabla. La lógica no importa la interfaz (`test_capas`).
+- **Perturbaciones** (`limites.PERTURBACIONES`: atributo, nombre, tipo; opción 3 con submenú de conmutadores):
+  - sobre la **medición** (se suman al error): `error_oscilante`, `flag_error` (impulsos) y `ruido_termopar` (gauss σ = 1 °C);
+  - sobre el **horno** (vía `entorno`): `puerta` (`EventoAleatorio`, pérdida extra 1/`TAU_PUERTA`), `red_variable` (potencia = (V/Vn)²) y `ambiente_variable`.
+  - Los contadores `Motor.impulsos` y `Motor.aperturas` van al CSV. El impulso se define por tasa por hora simulada (`p = 1 − e^(−tasa·DT/3600)`) y tiene signo constante durante cada impulso. `construir_error` devuelve `(error, impulso_nuevo)`; el `Motor` solo **cuenta** los impulsos (`impulsos`, `impulso_activo`), y el `Simulador` (interfaz) pita una vez por refresco con impulsos nuevos y muestra "⚡ IMPULSO" en la tabla. La lógica no importa la interfaz (`test_capas`).
 - **Métricas:** se calculan sobre la temperatura **real** y valen también para arranques por encima del setpoint. IAE/ISE solo son comparables entre corridas de igual duración.
 - **CSV:** `resultados/` junto al exe (`sys.frozen`) o en el CWD. UTF-8 con BOM, `;` y coma decimal (Excel es-CO); cabecera `# clave;valor`; columnas `t_s;T_C;T_set_C;error_C;u`. `resultados.leer()` es la base del futuro dashboard.
 - **Monitor (`panel.py`):**
@@ -65,8 +69,7 @@ GitHub Actions (`.github/workflows/pruebas.yml`) las corre en cada push (Windows
 física · control (métricas por defecto: sobrepaso 0,54 %, t90 58 min, establecimiento 71 min) · velocidad · duración (bucle real de `Simulador`) · historial · perturbaciones (tasa independiente de DT) · integradores y comparación (orden 1/2/4) · estabilidad (límites 2τ y 2,785τ; el código amplifica exactamente por R) · anti_windup · derivada · métricas (contra fórmulas de primer orden) · resultados (ida y vuelta del CSV) · arranque · panel (Qt offscreen) · capas.
 
 ## Deuda técnica conocida
-1. Las perturbaciones no actúan sobre la física (`delta_T` no se usa en la planta).
-2. El estado del impulso vive en atributos de la función `impulso_probabilistico` (`reiniciar_impulso()`).
-3. El trapecio del primer paso usa `error_prev = 0` (efecto despreciable).
-4. `modelo/actuador.py` no está conectado, así que no entra en el exe.
-5. Con la física actual el sobrepaso máximo alcanzable es ~2 %. Un sobrepaso "de libro" requiere margen de potencia y retardo del termopar (pendiente; ver la memoria del proyecto).
+1. El estado del impulso vive en atributos de la función `impulso_probabilistico` (`reiniciar_impulso()`).
+2. El trapecio del primer paso usa `error_prev = 0` (efecto despreciable).
+3. `modelo/actuador.py` no está conectado, así que no entra en el exe.
+4. Con la física actual el sobrepaso máximo alcanzable es ~2 %. Un sobrepaso "de libro" requiere margen de potencia y retardo del termopar (pendiente; ver la memoria del proyecto).

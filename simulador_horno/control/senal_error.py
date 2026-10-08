@@ -10,7 +10,7 @@ la interfaz quien decide cómo avisarlo (pitido, indicador en la tabla).
 """
 from simulador_horno.configuracion import limites
 from simulador_horno.configuracion import parametros_horno as vhorno
-from simulador_horno.modelo.perturbaciones import get_ruido, perturbacion_total
+from simulador_horno.modelo.perturbaciones import get_ruido, perturbacion_total, ruido_termopar
 
 
 def construir_error(t, T):
@@ -21,6 +21,9 @@ def construir_error(t, T):
     """
     error = vhorno.T_SET - T
     impulso_nuevo = False
+
+    if vhorno.ruido_termopar:   # el termopar lee T + ruido -> el error baja en ese ruido
+        error -= ruido_termopar(limites.RUIDO_TERMOPAR_SIGMA)
 
     if vhorno.error_oscilante:
         error += get_ruido(t)

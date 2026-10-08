@@ -126,8 +126,10 @@ class Simulador:
             "velocidad": vsim.velocidad,
             "duracion_h": vsim.duracion_horas,
             "corrida_completa": "si" if self.terminada else "no",
-            "error_oscilante": "si" if vhorno.error_oscilante else "no",
-            "impulsos": "si" if vhorno.flag_error else "no",
+            **{f"perturbacion_{a}": "si" if getattr(vhorno, a) else "no"
+               for a, _, _ in limites.PERTURBACIONES},
+            "impulsos_ocurridos": self.motor.impulsos,
+            "aperturas_de_puerta": self.motor.aperturas,
         }
 
     def _guardar_resultados(self):
@@ -160,6 +162,8 @@ class Simulador:
             metricas=self.metricas,
             impulsos=m.impulsos if vhorno.flag_error else None,
             impulso_activo=m.impulso_activo,
+            aperturas=m.aperturas if vhorno.puerta else None,
+            puerta_abierta=m.puerta_abierta,
         )
 
     @staticmethod

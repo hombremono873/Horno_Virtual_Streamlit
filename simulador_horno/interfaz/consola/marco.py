@@ -24,6 +24,7 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 from rich.text import Text
 
+from simulador_horno.configuracion import limites
 from simulador_horno.configuracion import parametros_horno as vhorno
 from simulador_horno.configuracion import parametros_pid as vpid
 from simulador_horno.configuracion import parametros_simulacion as vsim
@@ -118,8 +119,8 @@ def panel_estado():
     t.add_row("Ganancia B", f"{vhorno.B:.4f} °C/s")
     t.add_row("Constante τ", f"{vhorno.TAU:g} s")
     t.add_row("Paso Δt", f"{vhorno.DT:g} s")
-    activas = [n for n, on in (("oscilante", vhorno.error_oscilante), ("impulso", vhorno.flag_error)) if on]
-    t.add_row("Perturbación", ", ".join(activas) or "ninguna")
+    activas = [n for a, n, _ in limites.PERTURBACIONES if getattr(vhorno, a)]
+    t.add_row("Perturbaciones", "\n".join(activas) or "ninguna")
     t.add_row("Velocidad", vsim.velocidad)
     t.add_row("Duración", texto_duracion(vsim.duracion_horas))
     t.add_row("Método numérico", NOMBRES_METODOS.get(vsim.metodo, vsim.metodo))

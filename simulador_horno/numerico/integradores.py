@@ -2,8 +2,9 @@
 
     dT/dt = (1/TAU)·(T_AMB − T) + B·u
 
-Mismo modelo que ``modelo.horno.simular_horno`` (Euler), integrado con
-métodos de mayor orden. El usuario elige el método desde el menú
+Los tres métodos evalúan la misma ecuación, ``modelo.horno.derivada``
+(que incluye las perturbaciones físicas activas); difieren solo en cómo
+combinan esas evaluaciones. El usuario elige el método desde el menú
 (``formularios.configurar_metodo``); ``METODOS`` asocia cada clave con su
 función de paso, todas con la misma firma ``(T_actual, u) -> T_nuevo``.
 
@@ -15,27 +16,22 @@ función de paso, todas con la misma firma ``(T_actual, u) -> T_nuevo``.
 import math
 
 from simulador_horno.configuracion import parametros_horno as var
-from simulador_horno.modelo.horno import simular_horno
+from simulador_horno.modelo.horno import derivada, simular_horno
 
 
 def simular_horno_heun(T_actual, u):
     """Método de Heun (predictor-corrector, RK de 2º orden)."""
     try:
-        TAU = var.TAU
-        if TAU == 0:
-            TAU = 1e-6   # evita división por cero
         DT = var.DT
-        T_AMB = var.T_AMB
-        B = var.B
 
         # Paso 1: pendiente inicial
-        k1 = (1 / TAU) * (T_AMB - T_actual) + B * u
+        k1 = derivada(T_actual, u)
 
         # Paso 2: valor predicho
         T_pred = T_actual + DT * k1
 
         # Paso 3: pendiente final
-        k2 = (1 / TAU) * (T_AMB - T_pred) + B * u
+        k2 = derivada(T_pred, u)
 
         # Paso 4: corrección (promedio de pendientes)
         T_nuevo = T_actual + (DT / 2) * (k1 + k2)
@@ -52,19 +48,12 @@ def simular_horno_heun(T_actual, u):
 def simular_horno_runge(T_actual, u):
     """Método de Runge-Kutta de 4º orden."""
     try:
-        TAU = var.TAU
-        if TAU == 0:
-            TAU = 1e-6  # evita división por cero
-
         h = var.DT
 
-        def f(T, u):
-            return (1 / TAU) * (var.T_AMB - T) + var.B * u
-
-        k1 = f(T_actual, u)
-        k2 = f(T_actual + 0.5 * h * k1, u)
-        k3 = f(T_actual + 0.5 * h * k2, u)
-        k4 = f(T_actual + h * k3, u)
+        k1 = derivada(T_actual, u)
+        k2 = derivada(T_actual + 0.5 * h * k1, u)
+        k3 = derivada(T_actual + 0.5 * h * k2, u)
+        k4 = derivada(T_actual + h * k3, u)
 
         T_nuevo = T_actual + (h / 6) * (k1 + 2 * k2 + 2 * k3 + k4)
 

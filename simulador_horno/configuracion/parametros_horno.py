@@ -35,8 +35,15 @@ errores = []
 potencias = []      # señal de control u en [0, 1]
 
 # ----------------------------------------------------------------
-# Estado de las perturbaciones (lo conmutan los formularios del menú)
+# Perturbaciones (las conmuta la opción 3 -> formularios.configurar_perturbaciones).
+# Todas apagadas por defecto. Constantes en limites.py.
 # ----------------------------------------------------------------
 delta_T = 0
-flag_error = False        # opción 4: impulso probabilístico
-error_oscilante = False   # opción 3: ruido + senoide sobre el error
+# sobre la MEDICIÓN (el controlador lee mal; el horno no cambia)
+error_oscilante = False   # ruido + senoide sobre el error
+flag_error = False        # impulsos probabilísticos sobre el error
+ruido_termopar = False    # ruido gaussiano en la lectura del termopar
+# sobre el HORNO (física real)
+puerta = False            # aperturas de puerta al azar: más pérdidas
+red_variable = False      # fluctuación del voltaje de red: potencia ∝ V²
+ambiente_variable = False # temperatura ambiente que oscila lentamente

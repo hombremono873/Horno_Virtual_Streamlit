@@ -12,7 +12,7 @@ por hora y se convierte a probabilidad por paso con
 (probabilidad de al menos un evento de Poisson en un intervalo ``dt``).
 """
 import math
-from random import random, uniform
+from random import gauss, random, uniform
 
 
 def probabilidad_por_paso(tasa_hora, dt):
@@ -75,3 +75,51 @@ def get_ruido(t):
     ruido = uniform(-0.5, 1.5)
     perturbacion = 20 * math.sin(0.05 * t)
     return perturbacion + ruido
+
+
+# ======================================================================
+# Perturbaciones sobre la MEDICIÓN y sobre el HORNO (física real)
+# ======================================================================
+class EventoAleatorio:
+    """Evento que ocurre ``tasa_hora`` veces por hora simulada y dura
+    ``duracion`` segundos (con la misma conversión a probabilidad por paso
+    que el impulso, de modo que no depende de ``dt``)."""
+
+    def __init__(self):
+        self.reiniciar()
+
+    def reiniciar(self):
+        self.activo = False
+        self.t_inicio = 0.0
+
+    def actualizar(self, t, dt, tasa_hora, duracion):
+        """Devuelve ``(activo, nuevo)``."""
+        if self.activo:
+            if t < self.t_inicio + duracion:
+                return True, False
+            self.activo = False
+        if random() < probabilidad_por_paso(tasa_hora, dt):
+            self.activo, self.t_inicio = True, t
+            return True, True
+        return False, False
+
+
+puerta = EventoAleatorio()
+
+
+def factor_potencia_red(t, amplitudes, periodos):
+    """Fracción de la potencia nominal: (V/Vn)², con V/Vn = 1 + Σ a·sen(2πt/P + fase)."""
+    v = 1.0
+    for i, (a, p) in enumerate(zip(amplitudes, periodos)):
+        v += a * math.sin(2 * math.pi * t / p + i)   # fase distinta por armónico
+    return v * v
+
+
+def temperatura_ambiente(t, T_amb, amplitud, periodo):
+    """Ambiente que oscila lentamente alrededor de ``T_amb``."""
+    return T_amb + amplitud * math.sin(2 * math.pi * t / periodo)
+
+
+def ruido_termopar(sigma):
+    """Error de lectura del termopar (°C), gaussiano de media cero."""
+    return gauss(0.0, sigma)

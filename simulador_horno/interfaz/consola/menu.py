@@ -4,7 +4,7 @@ from simulador_horno.interfaz.consola import marco
 ITEMS = [
     ("1", "Configurar PID", "Ganancias Kp, Ki, Kd"),
     ("2", "Configurar horno", "T ambiente, setpoint, T máx., τ, Δt"),
-    ("3", "Error oscilante", "Ruido + senoide sobre el error"),
+    ("3", "Fallos y perturbaciones", "Sobre la medición o sobre el horno real"),
     ("4", "Error de impulso", "Impulsos térmicos probabilísticos"),
     ("5", "Anti-windup", "Ninguno, recorte o integración condicional"),
     ("6", "Velocidad y duración", "Ritmo de la corrida y cuándo se detiene"),

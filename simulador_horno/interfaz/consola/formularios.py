@@ -107,8 +107,55 @@ def configurar_horno():
 
 
 # ----------------------------------------------------------------------
-# Perturbaciones (opciones 3 y 4)
+# Fallos y perturbaciones (opción 3)
 # ----------------------------------------------------------------------
+_DESCRIPCION_PERTURBACION = {
+    "error_oscilante": "senoide de 20 °C + ruido sumados al error",
+    "flag_error": "impulsos de ±80 °C, ~6 por hora",
+    "ruido_termopar": "lectura con ruido gaussiano de ±1 °C",
+    "puerta": "~2 aperturas por hora de 90 s: las pérdidas se triplican",
+    "red_variable": "el voltaje oscila ±6 %: la potencia varía ±12 %",
+    "ambiente_variable": "el ambiente oscila ±10 °C en 1 h",
+}
+
+_AYUDA_PERTURBACIONES = Text.from_markup(
+    "[b]Medición[/b]: el controlador lee mal, pero el horno no cambia por sí mismo.\n"
+    "[b]Horno[/b]: cambia la física real; la temperatura se mueve de verdad y el\n"
+    "PID tiene que corregirla."
+)
+
+
+def activas():
+    """Nombres de las perturbaciones activas."""
+    return [nombre for atributo, nombre, _ in limites.PERTURBACIONES if getattr(horno, atributo)]
+
+
+def configurar_perturbaciones():
+    """Submenú que activa o desactiva cada perturbación (Enter conmuta)."""
+    indice = 0
+    while True:
+        items = []
+        for i, (atributo, nombre, tipo) in enumerate(limites.PERTURBACIONES, 1):
+            marca = "●" if getattr(horno, atributo) else "○"
+            items.append((str(i), f"{marca} {nombre}", f"{tipo} · {_DESCRIPCION_PERTURBACION[atributo]}"))
+        n = len(items)
+        items.append((str(n + 1), "Desactivar todas", "Vuelve al horno ideal"))
+        items.append((str(n + 2), "Volver", "Conservar la selección y volver al menú"))
+        eleccion = marco.menu_interactivo("FALLOS Y PERTURBACIONES  (Enter activa / desactiva)",
+                                          items, migas=["Fallos y perturbaciones"], inicial=indice)
+        indice = int(eleccion) - 1
+        if indice < n:
+            atributo = limites.PERTURBACIONES[indice][0]
+            setattr(horno, atributo, not getattr(horno, atributo))
+        elif indice == n:
+            for atributo, _, _ in limites.PERTURBACIONES:
+                setattr(horno, atributo, False)
+        else:
+            break
+    marco.cabecera_seccion("FALLOS Y PERTURBACIONES", _AYUDA_PERTURBACIONES, migas=["Fallos y perturbaciones"])
+    marco.resumen("Perturbaciones", {"activas": ", ".join(activas()) or "ninguna (horno ideal)"})
+
+
 def _conmutar(titulo, descripcion, atributo, migas):
     actual = getattr(horno, atributo)
     estado = "[bold green]ACTIVADA[/]" if actual else "[dim]desactivada[/]"

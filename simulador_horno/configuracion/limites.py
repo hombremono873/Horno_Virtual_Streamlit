@@ -45,6 +45,30 @@ TASA_IMPULSOS_HORA = 6
 DURACION_IMPULSO = 3       # s simulados
 MAGNITUD_IMPULSO = 80      # °C sumados al error
 
+# --- Perturbaciones sobre la medición y sobre el horno -----------
+# (atributo de parametros_horno, nombre visible, sobre qué actúa)
+PERTURBACIONES = (
+    ("error_oscilante", "Error oscilante", "medición"),
+    ("flag_error", "Impulsos en el error", "medición"),
+    ("ruido_termopar", "Ruido del termopar", "medición"),
+    ("puerta", "Apertura de puerta", "horno"),
+    ("red_variable", "Fluctuación de la red", "horno"),
+    ("ambiente_variable", "Ambiente variable", "horno"),
+)
+RUIDO_TERMOPAR_SIGMA = 1.0     # °C: desviación típica del ruido de lectura
+# Apertura de la puerta: eventos al azar por hora simulada; mientras está
+# abierta las pérdidas se multiplican (pérdida extra = 1/TAU_PUERTA).
+TASA_PUERTA_HORA = 2
+DURACION_PUERTA = 90           # s simulados
+TAU_PUERTA = 1500              # s: con TAU = 3000 las pérdidas se triplican
+# Red eléctrica: el voltaje oscila (V/Vn = 1 + suma de senoides) y la
+# potencia del calentador es proporcional a V².
+RED_AMPLITUDES = (0.04, 0.02)  # fracción del voltaje nominal
+RED_PERIODOS = (600, 170)      # s
+# Ambiente: T_amb + amplitud·sen(2πt/periodo)
+AMBIENTE_AMPLITUD = 10.0       # °C
+AMBIENTE_PERIODO = 3600        # s
+
 # --- Escala de color térmico (interfaz.graficas.panel) ---
 TEMP_MIN_COLOR = 30
 TEMP_MAX_COLOR = 1200

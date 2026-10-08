@@ -32,7 +32,7 @@ El simulador permite analizar de forma numérica y visual el comportamiento din�
 |--------|----------|
 | `1` Configurar PID | Ganancias Kp, Ki, Kd |
 | `2` Configurar horno | T ambiente, setpoint, T máx. de equilibrio, **T inicial** (arranque en frío o en caliente), τ, Δt |
-| `3` Error oscilante | Activa ruido + senoide sobre el error |
+| `3` Fallos y perturbaciones | Activa o desactiva 6 perturbaciones: 3 sobre la **medición** y 3 sobre el **horno real** (ver abajo) |
 | `4` Error de impulso | Activa impulsos aleatorios (~6 por hora simulada) |
 | `5` Anti-windup | Ninguno, recorte de la integral o **integración condicional** (por defecto) |
 | `6` Velocidad y duración | x1, x10, **x60**, x600 o máxima · 30 min a 8 h (**2 h**) o sin límite |
@@ -54,7 +54,9 @@ El simulador permite analizar de forma numérica y visual el comportamiento din�
 | **Estabilidad numérica** | Opción 7 → *Estabilidad con Δt grande* | Con Δt > 2τ Euler diverge aunque la física sea estable |
 | **Métodos en la simulación** | Opción 2: Δt = 30 s; opción 7: Euler y luego RK4 | Euler se aparta de RK4 con pasos grandes |
 | **Arranque en caliente** | Opción 2: T inicial = 600 (o 1200) | Llega antes; desde 1200 °C el PID apaga la potencia y el horno se enfría |
-| **Perturbaciones** | Opciones 3 y 4 | El PID corrige ruido e impulsos alrededor del setpoint |
+| **Puerta abierta** | Opción 3: *Apertura de puerta* | Caídas de hasta ~50 °C en régimen y la recuperación del PID |
+| **Red eléctrica** | Opción 3: *Fluctuación de la red* | La temperatura oscila ±3 °C alrededor del setpoint |
+| **Sensor vs. realidad** | Opción 3: *Ruido del termopar* | El controlador lee ±1 °C de ruido, pero el horno apenas se mueve |
 
 Para comparar dos corridas, cambia **una sola cosa** a la vez y usa la **misma duración**.
 
@@ -126,7 +128,15 @@ El nombre indica la fecha, el método, el Δt y el anti-windup, por ejemplo `202
   - **Proporcional:** responde al error instantáneo.
   - **Integral:** corrige el error acumulado (regla del trapecio), protegida por el **anti-windup**.
   - **Derivativa:** se calcula sobre la **temperatura medida**, para evitar picos cuando el error salta.
-- **Perturbaciones:** el ruido, la senoide y los impulsos se suman al **error que ve el controlador**, como si el sensor leyera mal; la física del horno no se perturba.
+- **Fallos y perturbaciones (opción 3)**, todas apagadas por defecto:
+
+  | Sobre la **medición** (el controlador lee mal) | Sobre el **horno real** (cambia la física) |
+  |---|---|
+  | Error oscilante: senoide de 20 °C + ruido | Apertura de puerta: ~2 por hora, 90 s, las pérdidas se triplican |
+  | Impulsos en el error: ±80 °C, ~6 por hora | Fluctuación de la red: voltaje ±6 % → potencia ±12 % (P ∝ V²) |
+  | Ruido del termopar: ±1 °C gaussiano | Ambiente variable: ±10 °C en 1 h (el PID lo compensa casi por completo) |
+
+  Con las del horno, la temperatura sigue moviéndose alrededor del setpoint como en un horno real. Las tres actúan dentro de la misma ecuación `dT/dt`, sea cual sea el método numérico.
 
 ---
 

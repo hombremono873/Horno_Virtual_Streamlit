@@ -15,7 +15,7 @@ def _correr_simulacion():
 ACCIONES = {
     "1": formularios.configurar_pid,
     "2": formularios.configurar_horno,
-    "3": formularios.configurar_error_oscilante,
+    "3": formularios.configurar_perturbaciones,
     "4": formularios.configurar_error_impulso,
     "5": formularios.configurar_anti_windup,
     "6": formularios.configurar_velocidad,
