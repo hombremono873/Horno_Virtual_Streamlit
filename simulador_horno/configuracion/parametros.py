@@ -10,6 +10,8 @@ Las constantes que el usuario NO edita siguen en ``limites``.
 from copy import deepcopy
 from dataclasses import dataclass, field
 
+from simulador_horno.configuracion import limites
+
 
 @dataclass
 class ParametrosHorno:
@@ -57,6 +59,7 @@ class Perturbaciones:
     puerta: bool = False            # aperturas de puerta al azar: más pérdidas
     red_variable: bool = False      # fluctuación del voltaje de red: potencia ∝ V²
     ambiente_variable: bool = False # temperatura ambiente que oscila lentamente
+    tasa_impulsos_hora: float = limites.TASA_IMPULSOS_HORA   # impulsos por hora simulada
 
 
 @dataclass

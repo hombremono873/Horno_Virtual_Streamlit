@@ -67,10 +67,16 @@ class Simulador:
                                                perturbaciones, self.perturbador)
         if impulso_nuevo:
             self.impulsos += 1
-        u = self.pid.paso(error, horno.T_SET - error, horno.DT)   # medida = lo que "lee" el controlador
+        pid = self.pid
+        u = pid.paso(error, horno.T_SET - error, horno.DT)   # medida = lo que "lee" el controlador
         # se registra ANTES de integrar: cada muestra es coherente en el
         # instante t (T(t), el error visto en t y la u decidida en t)
-        self.historial.registrar(self.t, self.T, error, u)
+        self.historial.registrar(
+            self.t, self.T, error, u, horno.T_SET,
+            pid.proporcional / limites.U_MAX,
+            pid.parametros.KI * pid.integral / limites.U_MAX,
+            pid.derivada / limites.U_MAX,
+        )
         # las perturbaciones del horno solo rigen durante este paso
         entorno, apertura = self.perturbador.entorno(self.t, horno.DT, horno.T_AMB, perturbaciones)
         self.aperturas += apertura
@@ -141,6 +147,7 @@ class Simulador:
             "corrida_completa": "si" if self.terminada else "no",
             **{f"perturbacion_{a}": "si" if getattr(self.config.perturbaciones, a) else "no"
                for a, _, _ in limites.PERTURBACIONES},
+            "tasa_impulsos_hora": self.config.perturbaciones.tasa_impulsos_hora,
             "impulsos_ocurridos": self.impulsos,
             "aperturas_de_puerta": self.aperturas,
         }

@@ -75,3 +75,16 @@ def test_dos_perturbadores_no_comparten_estado():
         a.perturbacion_total(k * 0.1, 0.1, tasa_hora=3600)
     assert b.impulso.activo is False and b.impulso.signo == 1
     assert b.rng.random() == Perturbador(1).rng.random()
+
+
+def test_tasa_de_impulsos_configurable():
+    from simulador_horno.configuracion.parametros import Configuracion, Perturbaciones
+    from simulador_horno.simulacion.simulador import Simulador
+
+    def impulsos(tasa):
+        config = Configuracion(perturbaciones=Perturbaciones(flag_error=True, tasa_impulsos_hora=tasa))
+        sim = Simulador(config, semilla=4)
+        sim.avanzar(int(3 * 3600 / config.horno.DT))
+        return sim.impulsos
+    assert impulsos(0) == 0
+    assert impulsos(60) > 3 * impulsos(6) > 0

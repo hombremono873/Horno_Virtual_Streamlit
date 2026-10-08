@@ -25,7 +25,7 @@ def construir_error(t, T, T_set, dt, perturbaciones, perturbador):
         error += perturbador.ruido_oscilante(t)
 
     if perturbaciones.flag_error:
-        delta, impulso_nuevo = perturbador.perturbacion_total(t, dt)
+        delta, impulso_nuevo = perturbador.perturbacion_total(t, dt, perturbaciones.tasa_impulsos_hora)
         error += delta
 
     return error, impulso_nuevo
