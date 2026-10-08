@@ -156,7 +156,7 @@ En los formularios, `Enter` sin escribir nada conserva el valor actual (se muest
 | Opción | Qué hace |
 |--------|----------|
 | `1` Configurar PID | Ganancias Kp, Ki, Kd |
-| `2` Configurar horno | T ambiente, setpoint, T máx. de equilibrio, τ, Δt |
+| `2` Configurar horno | T ambiente, setpoint, T máx. de equilibrio, T inicial (arranque en frío o en caliente), τ, Δt |
 | `3` Error oscilante | Ruido + senoide sobre el error |
 | `4` Error de impulso | Impulsos térmicos aleatorios (~6 por hora simulada) |
 | `5` Anti-windup | Ninguno, recorte de la integral o integración condicional (por defecto) |

@@ -23,7 +23,7 @@ class Motor:
         vhorno.recalcular_B()
         self.metodo = vsim.metodo
         self._integrar = METODOS[self.metodo]   # Euler, Heun o RK4, fijo durante la corrida
-        self.T = vhorno.T_AMB
+        self.T = vhorno.T_INICIAL   # T_AMB = arranque en frío; mayor = en caliente
         self.t = 0.0
         self.u = 0.0
         self.error = vhorno.T_SET - self.T

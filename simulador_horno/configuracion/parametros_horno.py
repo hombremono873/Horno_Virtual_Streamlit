@@ -8,6 +8,7 @@
 T_AMB = 30.0        # Temperatura ambiente (°C)
 T_SET = 1000.0      # Setpoint / temperatura objetivo (°C)
 T_MAX_EQ = 1300.0   # Temperatura de equilibrio a potencia plena, u = 1 (°C)
+T_INICIAL = 30.0    # Temperatura del horno al empezar la corrida (°C); = T_AMB es arranque en frío
 TAU = 3000          # Constante de tiempo del horno (s)
 DT = 0.1            # Paso de integración numérica (s); fijo, NO acelera la simulación
 

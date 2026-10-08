@@ -113,6 +113,7 @@ def panel_estado():
     t.add_row("", "")
     t.add_row("T. objetivo", f"{vhorno.T_SET:g} °C")
     t.add_row("T. ambiente", f"{vhorno.T_AMB:g} °C")
+    t.add_row("T. inicial", f"{vhorno.T_INICIAL:g} °C")
     t.add_row("T. máx. equilibrio", f"{vhorno.T_MAX_EQ:g} °C")
     t.add_row("Ganancia B", f"{vhorno.B:.4f} °C/s")
     t.add_row("Constante τ", f"{vhorno.TAU:g} s")

@@ -91,7 +91,8 @@ main.py  ->  simulador_horno/app.py::ejecutar()
 Este punto es el más importante para entender el código. **No hay objetos de configuración.** El estado vive en variables de módulo que se importan con alias y se mutan en caliente:
 
 - `configuracion/parametros_horno.py` (alias habitual `var`, `vhorno`, `horno`):
-  - `T_AMB=30`, `T_SET=1000`, `T_MAX_EQ=1300` (equilibrio con u = 1), `TAU=3000` y `DT=0.1`.
+  - `T_AMB=30`, `T_SET=1000`, `T_MAX_EQ=1300` (equilibrio con u = 1), `T_INICIAL=30`, `TAU=3000` y `DT=0.1`.
+  - **`T_INICIAL`** es la temperatura con que arranca cada corrida (`Motor.T`). Igual a `T_AMB` es arranque en frío y mayor es en caliente. El formulario exige `T_AMB ≤ T_INICIAL ≤ T_MAX_EQ`. Si se arranca en el setpoint, el PID empieza con la integral en cero, decide u = 0 y el horno se enfría un poco antes de recuperarse: es el "bache" real de reencender un controlador sin memoria.
   - **`B` es derivado:** `recalcular_B()` hace `B = (T_MAX_EQ − T_AMB)/TAU` ≈ 0,423 °C/s. Llámala siempre que cambies `T_AMB`, `TAU` o `T_MAX_EQ` (lo hacen el formulario y el `Motor`).
   - También guarda las listas del historial (`tiempos`, `temperaturas`, `errores`, `potencias`) y los flags de perturbación (`error_oscilante`, `flag_error`, `delta_T`).
 - `configuracion/parametros_pid.py` (alias `var`, `vpid`, `pid`): `KP=200`, `KI=10`, `KD=2`, `anti_windup="condicional"`, `restringir_integral=0.85` (factor del modo "recorte") y el estado interno del PID entre pasos (`error_prev`, `integral`, `derivada`, `proporcional`). `Motor` pone ese estado a cero al iniciar cada corrida.
@@ -204,6 +205,7 @@ Con u = 1 la temperatura tiende a `T_MAX_EQ`. Protege contra `TAU == 0` y contra
 | `test_derivada.py` | sin pico de D en el primer paso; con el setpoint fijo equivale a derivar el error, también con perturbaciones; `medida_prev` se reinicia en cada corrida |
 | `test_metricas.py` | respuesta de primer orden: t10, t90, establecimiento, IAE e ISE coinciden con las fórmulas; sobrepaso; arranque por encima del setpoint; las métricas distinguen los anti-windup |
 | `test_resultados.py` | ida y vuelta del CSV; formato para Excel (BOM, `;`, coma decimal); el historial registra u; el simulador guarda y no se rompe si la carpeta falla |
+| `test_arranque.py` | arranque en frío por defecto; cada corrida empieza en `T_INICIAL` y llega al setpoint; en caliente llega antes; por encima del setpoint apaga la potencia y se enfría |
 | `test_capas.py` | `motor`, `reloj`, `metricas` y `resultados` no importan rich, PySide6 ni pyqtgraph |
 
 ## Cómo añadir cosas

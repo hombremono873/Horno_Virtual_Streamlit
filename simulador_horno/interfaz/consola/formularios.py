@@ -51,9 +51,12 @@ _AYUDA_HORNO = Text.from_markup(
     "[b]T_AMB[/b]     temperatura ambiente (°C)\n"
     "[b]T_SET[/b]     temperatura objetivo (°C)\n"
     "[b]T_MAX_EQ[/b]  temperatura a potencia plena, u = 1 (°C)\n"
+    "[b]T_INICIAL[/b] temperatura del horno al empezar la corrida (°C)\n"
     "[b]TAU[/b]       constante de tiempo (s)\n"
     "[b]DT[/b]        paso de integración numérica (s)\n\n"
     "La ganancia térmica B se calcula sola: B = (T_MAX_EQ − T_AMB) / TAU.\n"
+    "T_INICIAL = T_AMB es un arranque en frío; un valor mayor, en caliente\n"
+    "(por ejemplo, reencender el horno poco después de apagarlo).\n"
     "Para acelerar la corrida usa la opción 6 (velocidad), no DT."
 )
 
@@ -67,19 +70,36 @@ def _pedir_mayor(nombre, actual, minimo, motivo):
         console.print(f"[bold red]  {motivo}[/]")
 
 
+def _pedir_entre(nombre, actual, minimo, maximo, motivo):
+    """Como ``pedir_float`` pero exige ``minimo <= valor <= maximo``."""
+    while True:
+        valor = marco.pedir_float(nombre, actual)
+        if minimo <= valor <= maximo:
+            return valor
+        console.print(f"[bold red]  {motivo}[/]")
+
+
 def configurar_horno():
     marco.cabecera_seccion("CONFIGURAR HORNO", _AYUDA_HORNO, migas=["Configurar horno"])
     horno.T_AMB = marco.pedir_float("T ambiente (T_AMB)", horno.T_AMB)
     horno.T_SET = marco.pedir_float("Setpoint (T_SET)", horno.T_SET)
     horno.T_MAX_EQ = _pedir_mayor("T máx. equilibrio (T_MAX_EQ)", horno.T_MAX_EQ, horno.T_AMB,
                                   "Debe ser mayor que la temperatura ambiente.")
+    # la propuesta nunca queda por debajo del ambiente (si se subió T_AMB)
+    propuesta = min(max(horno.T_INICIAL, horno.T_AMB), horno.T_MAX_EQ)
+    horno.T_INICIAL = _pedir_entre(
+        "T inicial del horno (T_INICIAL)", propuesta, horno.T_AMB, horno.T_MAX_EQ,
+        f"Debe estar entre T_AMB ({horno.T_AMB:g}) y T_MAX_EQ ({horno.T_MAX_EQ:g}).",
+    )
     horno.TAU = _pedir_mayor("Constante de tiempo (TAU)", horno.TAU, 0, "Debe ser mayor que 0.")
     horno.DT = _pedir_mayor("Paso de integración (DT)", horno.DT, 0, "Debe ser mayor que 0.")
     horno.recalcular_B()
+    arranque = "en frío" if horno.T_INICIAL == horno.T_AMB else "en caliente"
     marco.resumen("Horno actualizado", {
         "T_AMB": f"{horno.T_AMB:g} °C",
         "T_SET": f"{horno.T_SET:g} °C",
         "T_MAX_EQ": f"{horno.T_MAX_EQ:g} °C",
+        "T_INICIAL": f"{horno.T_INICIAL:g} °C (arranque {arranque})",
         "B (calculada)": f"{horno.B:.4f} °C/s",
         "TAU": f"{horno.TAU:g} s",
         "DT": f"{horno.DT:g} s",
