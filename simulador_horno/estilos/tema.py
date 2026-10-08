@@ -7,7 +7,7 @@ el monitor de la versión de escritorio).
 
 INSTITUCION = "UNIVERSIDAD DE ANTIOQUIA"
 APP_NOMBRE = "SIMULADOR DE HORNO · CONTROL PID"
-APP_VERSION = "v3.0"
+APP_VERSION = "v3.1"
 
 # ======================================================================
 # GRÁFICAS
