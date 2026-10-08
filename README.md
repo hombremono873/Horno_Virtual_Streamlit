@@ -22,16 +22,17 @@ Esta es la **versión web**, pensada para usarse desde el navegador sin instalar
 ## Inicio rápido
 
 1. Abre la aplicación en el navegador (o ejecútala en tu computador, ver [Instalación](#instalación-y-desarrollo)).
-2. En la barra lateral deja el modo **Corrida completa** y pulsa **▶ Simular**. En un instante aparecen 2 h simuladas.
-3. Observa el monitor: temperatura con el setpoint, error, señal de control u y la franja térmica (el color del horno en cada instante).
-4. Debajo están las **métricas de desempeño** y el botón **⬇ Descargar la corrida (CSV)**.
-5. Cambia **una** cosa (por ejemplo, el anti-windup a *Ninguno*) y vuelve a simular: la corrida anterior queda superpuesta en gris punteado.
+2. La app arranca en modo **En vivo** a **x60** (1 segundo real = 1 minuto simulado). Pulsa **▶ Iniciar** en la barra lateral y mira calentarse el horno.
+3. El monitor es un solo lienzo, como el de un tablero de control: arriba los indicadores; a la izquierda la temperatura (con el setpoint), el error y la potencia u; a la derecha las **paredes del horno**, que se iluminan con su temperatura; abajo la **evolución del color**.
+4. El eje de temperatura está **centrado en el setpoint** (y el del error en 0): durante la subida la escala es amplia y, al estabilizarse, se cierra hasta ±5 °C para que se vea cómo oscila el horno alrededor de la referencia.
+5. Al terminar aparecen las **métricas de desempeño** y el botón **⬇ Descargar la corrida (CSV)**.
+6. Para comparar sintonías usa el modo **Corrida completa** y **▶ Simular**: la corrida se hace en un instante y la anterior queda superpuesta en gris punteado.
 
 ## La barra lateral
 
 | Sección | Qué contiene |
 |---|---|
-| **Modo** | *Corrida completa* (toda la duración de una vez) o *En vivo* (se ve avanzar, con ▶ Iniciar / ⏸ Pausar y ↺ Reiniciar) |
+| **Modo** | *En vivo* (por defecto: se ve avanzar, con ▶ Iniciar / ⏸ Pausar y ↺ Reiniciar) o *Corrida completa* (toda la duración de una vez, para comparar) |
 | **Horno** | T ambiente, setpoint, T máx. de equilibrio, **T inicial** (arranque en frío o en caliente) y τ. Muestra **B** calculado |
 | **Controlador PID** | Kp, Ki, Kd, anti-windup (ninguno, recorte, **integración condicional**) y el factor de recorte |
 | **Perturbaciones** | 3 sobre la **medición** y 3 sobre el **horno real** (ver [Modelo y control](#modelo-y-control)) y los impulsos por hora |
@@ -145,7 +146,7 @@ Para abrirlo en Excel en español: *Datos → Desde texto/CSV* y elige el delimi
 
 ## Instalación y desarrollo
 
-Requiere Python 3.13.
+Requiere Python 3.13. El monitor carga la biblioteca de gráficas (Plotly.js) desde internet, así que el navegador necesita conexión.
 
 ```bash
 python -m venv .venv

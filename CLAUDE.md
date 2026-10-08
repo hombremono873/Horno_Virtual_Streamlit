@@ -7,7 +7,7 @@ Simulador **pedagógico** de un horno eléctrico con control PID (Métodos Numé
 
 ## Comandos (desde `simulador/`)
 ```bash
-.venv\Scripts\python -m pytest                    # 190 pruebas, ~20 s (-s muestra métricas)
+.venv\Scripts\python -m pytest                    # 194 pruebas, ~20 s (-s muestra métricas)
 .venv\Scripts\python -m streamlit run streamlit_app.py   # http://localhost:8501
 ```
 - El usuario levanta la app con `iniciar_web.bat` (usa `.venv` explícito): su perfil de PowerShell tiene un `activate` que activa el entorno de otro proyecto (`usersdj`), así que nunca le des comandos con `python` a secas. `.vscode/settings.json` (en la carpeta de arriba, fuera del repo) apunta las terminales a `simulador\.venv`.
@@ -24,8 +24,9 @@ simulador_horno/
 ├── control/        pid (calcular_pid puro + clase PID), anti_windup, escalado (u∈[0,1]), senal_error
 ├── numerico/       integradores (METODOS/NOMBRES/ORDEN/EVALUACIONES), comparacion (vs. exacta), estabilidad (R(z))
 ├── simulacion/     simulador (Simulador: una corrida, sin E/S), reloj, historial, metricas, resultados (CSV)
-├── web/            datos (diezmado, CSV), graficas (plantilla y figura Plotly), ejecucion (modo en vivo),
-│                   app (página Streamlit); streamlit_app.py en la raíz solo llama a app.main()
+├── web/            datos (diezmado, CSV), graficas (figura del monitor en UN lienzo), indicadores (textos),
+│                   monitor (componente st.components.v2), ejecucion (modo en vivo), app (página);
+│                   streamlit_app.py en la raíz solo llama a app.main()
 └── estilos/tema.py paleta de las gráficas (G_*); .streamlit/config.toml repite fondo, panel y texto (probado)
 ```
 Un paso: `Simulador.paso` → `construir_error` → `PID.paso` → **registrar** → `Perturbador.entorno` → `METODOS[metodo](T, u, horno, entorno)`.
@@ -48,7 +49,9 @@ Un paso: `Simulador.paso` → `construir_error` → `PID.paso` → **registrar**
 - **Métricas** sobre la temperatura **real**; IAE/ISE solo comparables con igual duración.
 - **CSV web** (`web.datos.csv`, decisión del usuario): estándar, `,` y punto decimal, UTF-8, en memoria; columnas `t_s,T,T_set,error,u,P,I,D,perturbacion,T_medida`. `P, I, D` normalizados (`P+I+D` = u sin saturar); `perturbacion = error − (T_set − T)`. El `Historial` guarda `setpoints` (el setpoint puede cambiar en vivo) y los tres términos.
 - **CSV de disco** (`simulacion.resultados`, herencia del escritorio): `;` y coma decimal; la web no lo usa (solo lo prueba `test_resultados`/`test_dashboard`).
-- **Web:** un `Simulador` + `EjecucionEnVivo` por sesión en `st.session_state`. Los widgets (claves `w_*`) se copian a `sim.config` en cada ejecución (`_aplicar_widgets`, también al inicio de cada callback de botón). En vivo: `st.fragment(run_every=1/REFRESCO_HZ)` solo mientras `en_vivo`; al terminar la corrida hace `st.rerun()` para parar el temporizador. `EjecucionEnVivo` calcula los pasos con el tiempo REAL entre refrescos (tope 1 s; la pausa no se recupera). Plotly con `theme=None` (usa la plantilla propia) y `uirevision` para conservar el zoom. Usa `width="stretch"`, no `use_container_width` (en desuso).
+- **Web:** un `Simulador` + `EjecucionEnVivo` por sesión en `st.session_state`. Los widgets (claves `w_*`) se copian a `sim.config` en cada ejecución (`_aplicar_widgets`, también al inicio de cada callback de botón). En vivo: `st.fragment(run_every=1/REFRESCO_HZ)` solo mientras `en_vivo`; al terminar la corrida hace `st.rerun()` para parar el temporizador. `EjecucionEnVivo` calcula los pasos con el tiempo REAL entre refrescos (tope 1 s; la pausa no se recupera). Usa `width="stretch"`, no `use_container_width` (en desuso). La app arranca en modo En vivo a x60.
+- **Monitor sin parpadeo (`web/monitor.py`):** NO uses `st.plotly_chart` para el monitor (se reconstruye en cada refresco y Streamlit lo atenúa: el usuario lo vio titilar). Es un componente `st.components.v2` (`isolate_styles=False`) montado una vez con clave fija; cada refresco envía la figura en JSON y el navegador hace `Plotly.react` en el mismo div. Plotly.js se carga del CDN jsdelivr con la versión de `plotly.offline.get_plotlyjs_version()` (requiere internet). Indicadores y avisos van dentro del componente (`web/indicadores.py`, puros). `ESTILOS_GLOBALES` anula la atenuación `[data-stale]`. El componente se registra una vez POR RUNTIME (AppTest crea uno por sesión; si no, "Component is not registered"). Verificado en Edge con Playwright (el nodo del lienzo persiste y la opacidad no baja); Playwright no está en las dependencias.
+- **Lienzo (`web/graficas.figura_monitor`):** ejes con dominios manuales (curvas, horno, franja); temperatura centrada en el setpoint ACTUAL y error en 0 con el mismo `semirango` (desviación de los últimos `G_VENTANA_ESCALA_MIN` min en vivo; toda la corrida en corrida completa), mínimo ±5 °C. El dibujo del horno es un heatmap con aspecto fijo (`scaleanchor`).
 
 ## Cómo añadir
 - **Parámetro editable:** campo en la dataclass de `configuracion/parametros.py`; si va al CSV, `Simulador.parametros_corrida`.

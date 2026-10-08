@@ -23,7 +23,8 @@ from simulador_horno.control.anti_windup import NOMBRES as NOMBRES_ANTI_WINDUP
 from simulador_horno.estilos import tema
 from simulador_horno.numerico.integradores import METODOS, NOMBRES as NOMBRES_METODOS
 from simulador_horno.simulacion.simulador import Simulador
-from simulador_horno.web import datos, graficas
+from simulador_horno.web import datos, graficas, monitor
+from simulador_horno.web import indicadores as ind
 from simulador_horno.web.ejecucion import EjecucionEnVivo
 
 DEFECTO = Configuracion()
@@ -115,7 +116,7 @@ def _barra_lateral(ss):
     sim = ss.sim
     with st.sidebar:
         st.markdown(f"**{tema.APP_NOMBRE}**  \n{tema.INSTITUCION}")
-        modo = st.segmented_control("Modo", MODOS, default=MODOS[0], required=True,
+        modo = st.segmented_control("Modo", MODOS, default=MODOS[1], required=True,
                                     key="w_modo", on_change=_cambio_de_modo, width="stretch")
 
         with st.expander("Horno", expanded=True):
@@ -189,47 +190,6 @@ def _barra_lateral(ss):
 # ======================================================================
 # Monitor
 # ======================================================================
-def _hhmmss(segundos):
-    s = int(round(segundos))
-    return f"{s // 3600:d}:{s % 3600 // 60:02d}:{s % 60:02d}"
-
-
-def _minutos(segundos):
-    return "—" if segundos is None else f"{segundos / 60:.1f} min"
-
-
-def _indicadores(sim, modo, m):
-    c = st.columns(7)
-    c[0].metric("Tiempo simulado", _hhmmss(sim.t))
-    c[1].metric("Temperatura", f"{sim.T:.1f} °C")
-    c[2].metric("Error", f"{sim.error:+.1f} °C")
-    c[3].metric("Control u", f"{sim.u:.3f}")
-    c[4].metric("Sobrepaso", "—" if m is None else f"{m.sobrepaso_pct:.2f} %")
-    c[5].metric("Tiempo al 90 %", "—" if m is None else _minutos(m.t90))
-    factor = sim.config.simulacion.velocidad if modo == "En vivo" else "máxima"
-    c[6].metric("Factor activo", factor)
-
-
-def _estado_corrida(sim, en_vivo):
-    avisos = []
-    if sim.terminada:
-        avisos.append("✅ **Corrida terminada**")
-    elif en_vivo:
-        avisos.append("🟢 Simulando en vivo")
-    elif len(sim.historial):
-        avisos.append("⏸ En pausa")
-    if sim.impulso_activo:
-        avisos.append("⚡ **IMPULSO** en la medición")
-    if sim.puerta_abierta:
-        avisos.append("🚪 **Puerta abierta**")
-    if sim.config.perturbaciones.flag_error:
-        avisos.append(f"Impulsos: {sim.impulsos}")
-    if sim.config.perturbaciones.puerta:
-        avisos.append(f"Aperturas de puerta: {sim.aperturas}")
-    if avisos:
-        st.markdown(" · ".join(avisos))
-
-
 def _monitor(ss, modo):
     sim = ss.sim
     if ss.en_vivo:
@@ -237,15 +197,14 @@ def _monitor(ss, modo):
         nuevos = ss.vivo.impulsos_nuevos()
         if nuevos:
             st.toast(f"Impulso en la medición ({sim.impulsos} en la corrida)", icon="⚡")
-    m = sim.metricas()
-    _indicadores(sim, modo, m)
-    _estado_corrida(sim, ss.en_vivo)
-    if len(sim.historial) == 0:
-        st.info("Configura el horno en la barra lateral y pulsa **Simular** (o **Iniciar**, en vivo).")
-    else:
-        anterior = ss.anterior if (modo == "Corrida completa" and st.session_state.get("w_superponer")) else None
-        st.plotly_chart(graficas.figura_monitor(sim.historial, sim.duracion, anterior),
-                        theme=None, key="figura_monitor", config={"displaylogo": False})
+    en_vivo_modo = modo == "En vivo"
+    anterior = ss.anterior if (not en_vivo_modo and st.session_state.get("w_superponer")) else None
+    # en vivo la escala sigue los últimos minutos; en una corrida completa, toda la corrida
+    ventana = tema.G_VENTANA_ESCALA_MIN if en_vivo_modo else None
+    figura = graficas.figura_monitor(sim.historial, sim.duracion, anterior,
+                                     T_amb=sim.config.horno.T_AMB, ventana_min=ventana)
+    monitor.mostrar(figura, ind.indicadores(sim, en_vivo_modo, sim.metricas()),
+                    ind.estado(sim, ss.en_vivo))
     if ss.en_vivo and sim.terminada:
         ss.en_vivo = False
         st.rerun()   # detiene el refresco automático y actualiza los botones
@@ -261,9 +220,9 @@ def _resultados(sim):
     st.subheader("Desempeño de la corrida" if sim.terminada else "Desempeño (corrida incompleta)")
     filas = [
         ("Sobrepaso", f"{m.sobrepaso_c:.2f} °C  ({m.sobrepaso_pct:.2f} % del salto)"),
-        ("Tiempo de subida (10 % → 90 %)", _minutos(m.t_subida)),
-        ("Tiempo al 90 %", _minutos(m.t90)),
-        ("Establecimiento (±1 %)", _minutos(m.t_establecimiento)),
+        ("Tiempo de subida (10 % → 90 %)", ind.minutos(m.t_subida)),
+        ("Tiempo al 90 %", ind.minutos(m.t90)),
+        ("Establecimiento (±1 %)", ind.minutos(m.t_establecimiento)),
         ("Error final", f"{m.error_final:+.3f} °C"),
         ("IAE = ∫|e| dt", f"{m.iae / 60:,.0f} °C·min"),
         ("ISE = ∫e² dt", f"{m.ise / 60:,.0f} °C²·min"),
@@ -287,15 +246,17 @@ def main():
     modo = _barra_lateral(ss)
     _aplicar_widgets(ss.sim)
 
-    st.title("🔥 Horno virtual · Control PID")
-    st.caption(f"{tema.INSTITUCION} · Métodos Numéricos · {tema.APP_VERSION}")
+    st.html(monitor.ESTILOS_GLOBALES)
+    st.markdown(f"#### 🔥 Horno virtual · Control PID &nbsp; <small style='opacity:.6'>"
+                f"{tema.INSTITUCION} · Métodos Numéricos · {tema.APP_VERSION}</small>",
+                unsafe_allow_html=True)
 
     intervalo = 1.0 / limites.REFRESCO_HZ if ss.en_vivo else None
 
     @st.fragment(run_every=intervalo)
-    def monitor():
+    def fragmento_monitor():
         _monitor(ss, modo)
 
-    monitor()
+    fragmento_monitor()
     if not ss.en_vivo:
         _resultados(ss.sim)

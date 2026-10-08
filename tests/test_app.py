@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from simulador_horno.web import datos
+from simulador_horno.web import indicadores as ind
 
 pytest.importorskip("streamlit")
 from streamlit.testing.v1 import AppTest  # noqa: E402
@@ -20,11 +21,15 @@ def abrir():
     return at
 
 
-def metricas(at):
-    return {m.label: m.value for m in at.metric}
+def valores(at):
+    """Lo que muestran los indicadores del monitor (componente del navegador)."""
+    sim = at.session_state.sim
+    return dict(ind.indicadores(sim, at.segmented_control(key="w_modo").value == "En vivo", sim.metricas()))
 
 
 def simular(at):
+    if at.segmented_control(key="w_modo").value != "Corrida completa":
+        at.segmented_control(key="w_modo").set_value("Corrida completa").run()
     at.button(key="b_simular").click().run()
     assert not at.exception, [e.value for e in at.exception]
     return at
@@ -32,19 +37,20 @@ def simular(at):
 
 def test_la_app_carga_sin_errores():
     at = abrir()
-    assert at.title[0].value.startswith("🔥 Horno virtual")
-    assert metricas(at)["Tiempo simulado"] == "0:00:00"
+    assert any("Horno virtual" in md.value for md in at.markdown)
+    assert valores(at)["Tiempo simulado"] == "0:00:00"
+    assert at.segmented_control(key="w_modo").value == "En vivo"     # arranca en vivo
+    assert at.selectbox(key="w_velocidad").value == "x60"
     assert at.session_state.sim.config.horno.B == pytest.approx((1300 - 30) / 3000)
 
 
 def test_corrida_completa_produce_figura_y_metricas():
     at = simular(abrir())
-    m = metricas(at)
+    m = valores(at)
     assert m["Tiempo simulado"] == "2:00:00"
     assert m["Sobrepaso"] == "0.54 %" and m["Tiempo al 90 %"] == "58.2 min"
-    assert len(at.get("plotly_chart")) == 1
     assert at.table, "falta la tabla de desempeño"
-    assert any("Corrida terminada" in md.value for md in at.markdown)
+    assert "Corrida terminada" in ind.estado(at.session_state.sim, at.session_state.en_vivo)[0]
 
 
 def test_el_csv_tiene_las_columnas_esperadas():
@@ -119,5 +125,5 @@ def test_dos_sesiones_no_se_afectan():
     sa, sb = a.session_state.sim, b.session_state.sim
     assert sa is not sb and sa.config is not sb.config
     assert sb.config.horno.T_SET == 1000.0 and sb.config.pid.KP == 200
-    assert metricas(b)["Sobrepaso"] == "0.54 %"
+    assert valores(b)["Sobrepaso"] == "0.54 %"
     assert sa.historial.setpoints[-1] == 700.0
