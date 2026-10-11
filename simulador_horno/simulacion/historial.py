@@ -14,7 +14,13 @@ Series por muestra (todas del mismo instante t):
 - ``proporcionales``, ``integrales``, ``derivativos``: aporte de cada
   término del PID a la salida normalizada (u_bruta = P + I + D, antes de
   saturar a [0, 1]).
+- ``alfas``, ``fracciones``: ángulo de disparo del triac (NaN en modo
+  ideal) y fracción de potencia que REALMENTE llegó al horno;
+- ``potencias_w``, ``energias_kwh``: potencia eléctrica (W) y energía
+  consumida desde el inicio de la corrida (kWh).
 """
+import math
+
 from simulador_horno.configuracion import limites
 
 
@@ -30,13 +36,19 @@ class Historial:
         self.proporcionales = []
         self.integrales = []
         self.derivativos = []
+        self.alfas = []
+        self.fracciones = []
+        self.potencias_w = []
+        self.energias_kwh = []
         self._proxima = 0.0
 
     def _series(self):
         return (self.tiempos, self.temperaturas, self.errores, self.potencias,
-                self.setpoints, self.proporcionales, self.integrales, self.derivativos)
+                self.setpoints, self.proporcionales, self.integrales, self.derivativos,
+                self.alfas, self.fracciones, self.potencias_w, self.energias_kwh)
 
-    def registrar(self, t, T, error, u=0.0, T_set=None, P=0.0, I=0.0, D=0.0):
+    def registrar(self, t, T, error, u=0.0, T_set=None, P=0.0, I=0.0, D=0.0,
+                  alfa=math.nan, fraccion=None, potencia_w=0.0, energia_kwh=0.0):
         """Guarda la muestra solo si ya pasó ``intervalo`` desde la anterior.
 
         ``T_set`` None = el setpoint que hace cero el error sin perturbaciones (T + error).
@@ -51,6 +63,10 @@ class Historial:
         self.proporcionales.append(P)
         self.integrales.append(I)
         self.derivativos.append(D)
+        self.alfas.append(alfa)
+        self.fracciones.append(u if fraccion is None else fraccion)
+        self.potencias_w.append(potencia_w)
+        self.energias_kwh.append(energia_kwh)
         self._proxima += self.intervalo
         self._recortar()
 

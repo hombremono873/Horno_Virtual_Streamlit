@@ -42,6 +42,11 @@ class ParametrosPID:
     # factor [0, 1] del modo "recorte": escala la integral cuando supera
     # limites.UMBRAL_INTEGRAL
     restringir_integral: float = 0.85
+    # "automatico": el PID decide u (sin pasar de limite_potencia);
+    # "manual": u = potencia_manual, fijada por el usuario (lazo abierto)
+    modo_control: str = "automatico"
+    potencia_manual: float = 0.5     # fracción [0, 1] en modo manual
+    limite_potencia: float = 1.0     # máxima fracción que el PID puede pedir
 
 
 @dataclass
@@ -63,6 +68,25 @@ class Perturbaciones:
 
 
 @dataclass
+class ParametrosActuador:
+    """El triac que gobierna la potencia (ver ``modelo.triac``)."""
+    modo: str = "ideal"               # ideal | triac_lineal | triac_compensado
+    metodo: str = "newton"            # inversión de la curva: newton | biseccion
+    V_red: float = 220.0              # voltaje eficaz de la red (V)
+    frecuencia: float = 60.0          # Hz (un disparo por medio ciclo)
+    potencia_nominal: float = 3000.0  # W con el triac abierto del todo
+    alfa_min: float = limites.THETA_MIN   # grados: límites físicos del disparo
+    alfa_max: float = limites.THETA_MAX
+    resolucion: float = 0.0           # grados del temporizador de disparo (0 = continuo)
+    dispersion: float = 0.0           # grados: desviación típica del instante de disparo
+
+    @property
+    def R(self):
+        """Resistencia del horno (Ω): V_red² / potencia nominal."""
+        return self.V_red * self.V_red / self.potencia_nominal
+
+
+@dataclass
 class ParametrosSimulacion:
     velocidad: str = "x60"            # clave de limites.VELOCIDADES
     duracion_horas: float | None = 2  # horas simuladas; None = sin límite
@@ -76,6 +100,7 @@ class Configuracion:
     pid: ParametrosPID = field(default_factory=ParametrosPID)
     perturbaciones: Perturbaciones = field(default_factory=Perturbaciones)
     simulacion: ParametrosSimulacion = field(default_factory=ParametrosSimulacion)
+    actuador: ParametrosActuador = field(default_factory=ParametrosActuador)
 
     def copia(self):
         """Copia independiente (para comparar corridas o clonar una sesión)."""

@@ -84,3 +84,59 @@ def test_unidades_electricas():
     assert triac.potencia_electrica(90.0, 220.0, R) == pytest.approx(1500.0)
     assert triac.voltaje_rms(90.0, 220.0) == pytest.approx(220.0 / math.sqrt(2))
     assert triac.energia_kwh(3.6e6) == 1.0
+
+
+# ---- el triac dentro del simulador ---------------------------------------
+from simulador_horno.configuracion.parametros import Configuracion, ParametrosActuador  # noqa: E402
+from simulador_horno.simulacion.simulador import Simulador  # noqa: E402
+
+DOS_HORAS = 72_000   # pasos de 0,1 s
+
+
+def correr(**actuador):
+    sim = Simulador(Configuracion(actuador=ParametrosActuador(**actuador)), semilla=3)
+    sim.avanzar(DOS_HORAS)
+    return sim
+
+
+def test_modo_ideal_no_cambia_nada():
+    sim = correr()
+    h = sim.historial
+    assert h.fracciones == h.potencias and all(math.isnan(a) for a in h.alfas)
+    assert sim.metricas().sobrepaso_pct == pytest.approx(0.54, abs=0.05)
+
+
+def test_compensado_entrega_lo_que_pide_el_pid():
+    sim = correr(modo="triac_compensado")
+    h = sim.historial
+    minimo, maximo = triac.fraccion_potencia(170.0), triac.fraccion_potencia(10.0)
+    for u, f in zip(h.potencias, h.fracciones):
+        if minimo < u < maximo:                       # dentro de los límites físicos del disparo
+            assert f == pytest.approx(u, abs=1e-9)
+        elif u >= maximo:
+            assert f == pytest.approx(maximo)         # el triac no llega al 100 %
+    assert sim.alfa == pytest.approx(64.65, abs=0.2)  # régimen: ~76,4 % de potencia
+    assert abs(sim.T - 1000.0) < 0.5
+
+
+def test_ángulo_lineal_entrega_de_mas_y_el_pid_lo_compensa():
+    lineal, ideal = correr(modo="triac_lineal"), correr()
+    assert lineal.fraccion == pytest.approx(0.764, abs=0.01)   # el horno necesita lo mismo...
+    assert lineal.u < ideal.u - 0.05                            # ...pero el PID pide menos
+    assert abs(lineal.T - 1000.0) < 0.5                         # y aun así llega
+
+
+def test_energia_y_potencia_en_vatios():
+    sim = correr(modo="triac_compensado", potencia_nominal=3000.0)
+    h = sim.historial
+    assert max(h.potencias_w) <= 3000.0 and h.potencias_w[0] == pytest.approx(3000 * h.fracciones[0])
+    energia = sum(p * 0.1 for p in h.potencias_w) / 3.6e6       # una muestra por segundo ≈ 10 pasos
+    assert h.energias_kwh[-1] == pytest.approx(energia * 10, rel=0.01)
+    assert 3.0 < sim.energia_j / 3.6e6 < 6.0                     # ~2 h con 3 kW, buena parte saturado
+
+
+def test_dispersion_reproducible_con_semilla():
+    a = correr(modo="triac_compensado", dispersion=0.5, resolucion=1.0)
+    b = correr(modo="triac_compensado", dispersion=0.5, resolucion=1.0)
+    assert a.historial.temperaturas == b.historial.temperaturas
+    assert all(x == round(x) for x in a.historial.alfas)        # resolución de 1°

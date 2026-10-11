@@ -14,11 +14,14 @@ afecta a la corrida en curso. El método numérico y la duración se fijan al
 empezar la corrida (``reiniciar``). Modifica los campos de
 ``config.horno``, ``config.pid``... en sitio; no reemplaces esos objetos.
 """
+import math
+
 from simulador_horno.configuracion import limites
 from simulador_horno.configuracion.parametros import Configuracion
 from simulador_horno.control.pid import PID
 from simulador_horno.control.senal_error import construir_error
 from simulador_horno.modelo.perturbaciones import Perturbador
+from simulador_horno.modelo.triac import Triac, energia_kwh
 from simulador_horno.numerico.integradores import METODOS
 from simulador_horno.simulacion import metricas
 from simulador_horno.simulacion.historial import Historial
@@ -39,6 +42,7 @@ class Simulador:
         self.semilla = semilla
         self.pid = PID(self.config.pid)
         self.perturbador = Perturbador(semilla)
+        self.triac = Triac(self.config.actuador)
         self.historial = Historial(max_muestras, intervalo)
         self.reiniciar()
 
@@ -58,6 +62,9 @@ class Simulador:
         self.error = horno.T_SET - self.T
         self.impulsos = 0   # impulsos ocurridos en la corrida (la interfaz los avisa)
         self.aperturas = 0  # aperturas de puerta en la corrida
+        self.triac.parametros = self.config.actuador
+        self.energia_j = 0.0        # energía eléctrica consumida (J)
+        self.alfa, self.fraccion, self.potencia_w, self.iteraciones = math.nan, 0.0, 0.0, 0
         self.historial.limpiar()
 
     # ---- un paso de simulación --------------------------------------
@@ -69,6 +76,14 @@ class Simulador:
             self.impulsos += 1
         pid = self.pid
         u = pid.paso(error, horno.T_SET - error, horno.DT)   # medida = lo que "lee" el controlador
+        # las perturbaciones del horno solo rigen durante este paso
+        entorno, apertura = self.perturbador.entorno(self.t, horno.DT, horno.T_AMB, perturbaciones)
+        self.aperturas += apertura
+        # el triac convierte la u pedida en la fracción de potencia que llega
+        # (en modo ideal es la misma u). Su dispersión usa el generador
+        # DESPUÉS de las perturbaciones: el orden de las corridas no cambia.
+        fraccion, alfa, iteraciones = self.triac.aplicar(u, self.perturbador.rng)
+        potencia_w = fraccion * self.config.actuador.potencia_nominal * entorno[2]   # entorno[2] = (V/Vn)²
         # se registra ANTES de integrar: cada muestra es coherente en el
         # instante t (T(t), el error visto en t y la u decidida en t)
         self.historial.registrar(
@@ -76,13 +91,13 @@ class Simulador:
             pid.proporcional / limites.U_MAX,
             pid.parametros.KI * pid.integral / limites.U_MAX,
             pid.derivada / limites.U_MAX,
+            alfa=alfa, fraccion=fraccion, potencia_w=potencia_w, energia_kwh=energia_kwh(self.energia_j),
         )
-        # las perturbaciones del horno solo rigen durante este paso
-        entorno, apertura = self.perturbador.entorno(self.t, horno.DT, horno.T_AMB, perturbaciones)
-        self.aperturas += apertura
-        self.T = self._integrar(self.T, u, horno, entorno)
+        self.energia_j += potencia_w * horno.DT
+        self.T = self._integrar(self.T, fraccion, horno, entorno)
         self.t += horno.DT
         self.u, self.error = u, error
+        self.alfa, self.fraccion, self.potencia_w, self.iteraciones = alfa, fraccion, potencia_w, iteraciones
         return u, error
 
     def avanzar(self, pasos):
@@ -147,6 +162,11 @@ class Simulador:
             "corrida_completa": "si" if self.terminada else "no",
             **{f"perturbacion_{a}": "si" if getattr(self.config.perturbaciones, a) else "no"
                for a, _, _ in limites.PERTURBACIONES},
+            "actuador": self.config.actuador.modo,
+            "metodo_inversion": self.config.actuador.metodo,
+            "V_red": self.config.actuador.V_red,
+            "potencia_nominal_W": self.config.actuador.potencia_nominal,
+            "energia_kWh": energia_kwh(self.energia_j),
             "tasa_impulsos_hora": self.config.perturbaciones.tasa_impulsos_hora,
             "impulsos_ocurridos": self.impulsos,
             "aperturas_de_puerta": self.aperturas,
