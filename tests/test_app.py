@@ -15,10 +15,29 @@ APP = str(Path(__file__).resolve().parent.parent / "streamlit_app.py")
 
 
 def abrir():
+    """Carga la app y pasa la portada de créditos."""
     at = AppTest.from_file(APP, default_timeout=120)
     at.run()
     assert not at.exception, [e.value for e in at.exception]
+    at.button(key="b_abrir").click().run()
+    assert not at.exception, [e.value for e in at.exception]
     return at
+
+
+def test_la_portada_muestra_los_creditos_y_abre_el_simulador():
+    from simulador_horno import creditos
+    at = AppTest.from_file(APP, default_timeout=120).run()
+    assert not at.exception
+    from simulador_horno.web import bienvenida
+    portada = bienvenida._html()
+    for texto in ("Omar Alberto Torres", "Yony Ceballos", "Métodos Numéricos", "Ingeniería de Sistemas",
+                  "Universidad de Antioquia", "2026"):
+        assert texto in portada, texto
+    assert not at.sidebar.button, "la barra lateral no se dibuja en la portada"
+    at.button(key="b_abrir").click().run()
+    assert at.session_state.app_abierta and at.sidebar.button
+    barra = " ".join(md.value for md in at.sidebar.markdown)
+    assert creditos.DOCENTE in barra and creditos.AUTOR in barra   # créditos siempre visibles
 
 
 def valores(at):

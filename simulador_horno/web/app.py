@@ -23,7 +23,8 @@ from simulador_horno.control.anti_windup import NOMBRES as NOMBRES_ANTI_WINDUP
 from simulador_horno.estilos import tema
 from simulador_horno.numerico.integradores import METODOS, NOMBRES as NOMBRES_METODOS
 from simulador_horno.simulacion.simulador import Simulador
-from simulador_horno.web import datos, graficas, monitor
+from simulador_horno import creditos
+from simulador_horno.web import bienvenida, datos, graficas, monitor
 from simulador_horno.web import indicadores as ind
 from simulador_horno.web.ejecucion import EjecucionEnVivo
 
@@ -97,6 +98,15 @@ def _reiniciar():
     ss.vivo.reiniciar()
 
 
+def _abrir_simulador():
+    st.session_state.app_abierta = True
+
+
+@st.dialog("Créditos", width="large")
+def _ver_creditos():
+    bienvenida.creditos_en_ventana()
+
+
 def _cambio_de_modo():
     ss = _estado()
     ss.en_vivo = False
@@ -115,7 +125,8 @@ def _formato_duracion(horas):
 def _barra_lateral(ss):
     sim = ss.sim
     with st.sidebar:
-        st.markdown(f"**{tema.APP_NOMBRE}**  \n{tema.INSTITUCION}")
+        st.markdown(f"**{tema.APP_NOMBRE}**  \n{creditos.UNIVERSIDAD} · {creditos.ASIGNATURA}  \n"
+                    f"Autor: **{creditos.AUTOR}** · Docente: **{creditos.DOCENTE}**")
         modo = st.segmented_control("Modo", MODOS, default=MODOS[1], required=True,
                                     key="w_modo", on_change=_cambio_de_modo, width="stretch")
 
@@ -172,6 +183,8 @@ def _barra_lateral(ss):
                             disabled=not st.session_state.get("w_fijar_semilla", False))
 
         st.divider()
+        if st.button("ℹ Créditos", width="stretch", key="b_creditos"):
+            _ver_creditos()
         if modo == "Corrida completa":
             sin_limite = st.session_state.get("w_duracion", s.duracion_horas) is None
             st.button("▶ Simular", type="primary", width="stretch", key="b_simular",
@@ -252,12 +265,16 @@ def _resultados(sim):
 def main():
     st.set_page_config(page_title="Horno virtual · PID", page_icon="🔥", layout="wide")
     ss = _estado()
+    if not ss.get("app_abierta"):   # al iniciar: portada con los créditos
+        bienvenida.mostrar(_abrir_simulador)
+        return
     modo = _barra_lateral(ss)
     _aplicar_widgets(ss.sim)
 
     st.html(monitor.ESTILOS_GLOBALES)
     st.markdown(f"#### 🔥 Horno virtual · Control PID &nbsp; <small style='opacity:.6'>"
-                f"{tema.INSTITUCION} · Métodos Numéricos · {tema.APP_VERSION}</small>",
+                f"{creditos.UNIVERSIDAD} · {creditos.ASIGNATURA} · {creditos.AUTOR} · "
+                f"Docente {creditos.DOCENTE} · {tema.APP_VERSION}</small>",
                 unsafe_allow_html=True)
 
     intervalo = 1.0 / limites.REFRESCO_HZ if ss.en_vivo else None

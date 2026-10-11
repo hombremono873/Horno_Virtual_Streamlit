@@ -5,6 +5,8 @@ Guía técnica compacta. El detalle de cada módulo está en sus docstrings; aqu
 ## Qué es
 Simulador **pedagógico** de un horno eléctrico con control PID (Métodos Numéricos, UdeA; autor Omar Alberto Torres). **Este repositorio es solo WEB (Streamlit)**: la versión de escritorio (rich, Qt, `main.exe`) vive en `Hornovirtual_2026` y aquí no se mantiene. Código, comentarios y textos en **español**. El README es la guía para el estudiante. Plan y estado: `documentos/traspaso_version_streamlit.md` y `documentos/prompt_migracion_streamlit.txt` (las tres fases hechas; falta publicar).
 
+**Créditos obligatorios** (`simulador_horno/creditos.py`): autor Omar Alberto Torres, docente **Yony Ceballos**, Métodos Numéricos, Ingeniería de Sistemas, UdeA, 2026 (requisito de grado). Se ven en la portada (`web/bienvenida.py`, al iniciar; botón `b_abrir`), en la barra lateral, en la ventana `ℹ Créditos` (`st.dialog`) y en el README. Nunca los quites. La portada es un componente `st.components.v2` porque `st.html` filtra el CSS animado y el SVG; la ventana existe porque volver a la portada borraría el estado de los widgets de la barra lateral.
+
 ## Comandos (desde `simulador/`)
 ```bash
 .venv\Scripts\python -m pytest                    # 198 pruebas, ~20 s (-s muestra métricas)

@@ -3,9 +3,13 @@
 [![Pruebas](https://github.com/hombremono873/Horno_Virtual_Streamlit/actions/workflows/pruebas.yml/badge.svg)](https://github.com/hombremono873/Horno_Virtual_Streamlit/actions/workflows/pruebas.yml)
 
 **Universidad de Antioquia – Facultad de Ingeniería**  
+**Programa:** Ingeniería de Sistemas  
+**Asignatura:** Métodos Numéricos  
 **Autor:** Omar Alberto Torres  
 **Docente:** Yony Ceballos  
-**Fecha:** 2025–2026  
+**Año:** 2026  
+
+> Proyecto de la asignatura Métodos Numéricos, requisito de grado del programa de Ingeniería de Sistemas de la Universidad de Antioquia. Al abrir la aplicación aparece una portada con estos créditos; dentro del simulador se pueden volver a ver con el botón **ℹ Créditos** de la barra lateral.
 
 ---
 
