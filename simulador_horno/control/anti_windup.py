@@ -31,12 +31,13 @@ def minimizar_integral(integral, factor):
 
 
 def limitar(modo, integral_previa, integral_nueva, error, u_bruta,
-            factor_recorte=ParametrosPID.restringir_integral):
+            factor_recorte=ParametrosPID.restringir_integral, u_tope=1.0):
     """Integral que se conserva en este paso según el ``modo``.
 
     ``u_bruta`` es la salida normalizada (u / U_MAX) calculada con
     ``integral_nueva``, antes de saturar a [0, 1]. ``factor_recorte`` solo
-    se usa en el modo "recorte".
+    se usa en el modo "recorte". ``u_tope`` es el límite de potencia: con él
+    la salida se satura en ``u_tope`` en vez de en 1.
     """
     if modo == "ninguno":
         return integral_nueva
@@ -45,7 +46,7 @@ def limitar(modo, integral_previa, integral_nueva, error, u_bruta,
             return minimizar_integral(integral_nueva, factor_recorte)
         return integral_nueva
     if modo == "condicional":
-        satura_arriba = u_bruta > 1.0 and error > 0
+        satura_arriba = u_bruta > u_tope and error > 0
         satura_abajo = u_bruta < 0.0 and error < 0
         return integral_previa if (satura_arriba or satura_abajo) else integral_nueva
     raise ValueError(f"modo de anti-windup desconocido: {modo!r}")

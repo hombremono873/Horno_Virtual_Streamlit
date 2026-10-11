@@ -24,7 +24,7 @@ def calcular_pid(error, error_prev, integral, medida, medida_prev, pid, dt):
       ``−(medida − medida_prev)/dt``. Con el setpoint fijo es lo mismo, pero
       evita el pico de la acción D ("derivative kick") cuando el error salta,
       como en el primer paso. Si no hay medida previa (``None``) vale 0.
-    - salida ``u`` saturada por :func:`escalar_u`.
+    - salida ``u`` saturada por :func:`escalar_u` a [0, límite de potencia].
     """
     DT = dt
     if DT == 0:
@@ -35,14 +35,15 @@ def calcular_pid(error, error_prev, integral, medida, medida_prev, pid, dt):
     proporcional = pid.KP * error
 
     u_bruta = (proporcional + pid.KI * integral_nueva + pid.KD * derivada) / limites.U_MAX
+    tope = pid.limite_potencia
     integral = windout.limitar(pid.anti_windup, integral, integral_nueva, error, u_bruta,
-                               pid.restringir_integral)
+                               pid.restringir_integral, tope)
 
     u = proporcional + pid.KI * integral + pid.KD * derivada
     if math.isnan(u) or math.isinf(u):
         u = 0.0
 
-    return escalar_u(u), integral, error, pid.KD * derivada, proporcional
+    return escalar_u(u, limites.U_MAX, tope), integral, error, pid.KD * derivada, proporcional
 
 
 class PID:
@@ -75,3 +76,19 @@ class PID:
         )
         self.medida_prev = medida
         return u
+
+    def seguir(self, u, error, medida, dt):
+        """Modo manual: el PID no manda, pero SIGUE a la u que fija el usuario.
+
+        Se ajusta la integral para que P + I + D dé exactamente esa u; así,
+        al volver a automático, la potencia continúa desde donde estaba
+        (transferencia sin salto).
+        """
+        p = self.parametros
+        DT = dt if dt != 0 else 1e-6
+        self.derivada = 0.0 if self.medida_prev is None else -p.KD * (medida - self.medida_prev) / DT
+        self.proporcional = p.KP * error
+        if p.KI:
+            self.integral = (u * limites.U_MAX - self.proporcional - self.derivada) / p.KI
+        self.error_prev = error
+        self.medida_prev = medida

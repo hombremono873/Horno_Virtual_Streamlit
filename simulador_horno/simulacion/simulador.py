@@ -75,7 +75,13 @@ class Simulador:
         if impulso_nuevo:
             self.impulsos += 1
         pid = self.pid
-        u = pid.paso(error, horno.T_SET - error, horno.DT)   # medida = lo que "lee" el controlador
+        medida = horno.T_SET - error   # lo que "lee" el controlador
+        if pid.parametros.modo_control == "manual":
+            # lazo abierto: el usuario fija la potencia; el PID solo la sigue
+            u = min(max(pid.parametros.potencia_manual, 0.0), 1.0)
+            pid.seguir(u, error, medida, horno.DT)
+        else:
+            u = pid.paso(error, medida, horno.DT)
         # las perturbaciones del horno solo rigen durante este paso
         entorno, apertura = self.perturbador.entorno(self.t, horno.DT, horno.T_AMB, perturbaciones)
         self.aperturas += apertura
@@ -162,6 +168,9 @@ class Simulador:
             "corrida_completa": "si" if self.terminada else "no",
             **{f"perturbacion_{a}": "si" if getattr(self.config.perturbaciones, a) else "no"
                for a, _, _ in limites.PERTURBACIONES},
+            "modo_control": pid.modo_control,
+            "limite_potencia": pid.limite_potencia,
+            "potencia_manual": pid.potencia_manual if pid.modo_control == "manual" else None,
             "actuador": self.config.actuador.modo,
             "metodo_inversion": self.config.actuador.metodo,
             "V_red": self.config.actuador.V_red,
