@@ -58,7 +58,7 @@ def test_la_app_carga_sin_errores():
     at = abrir()
     assert any("Horno virtual" in md.value for md in at.markdown)
     assert valores(at)["Tiempo simulado"] == "0:00:00"
-    assert [t.label for t in at.tabs] == ["📈 Monitor", "🔢 Indicadores"]
+    assert [t.label for t in at.tabs] == ["📈 Monitor", "🔢 Indicadores", "⚡ Actuador"]
     assert at.segmented_control(key="w_modo").value == "En vivo"     # arranca en vivo
     assert at.selectbox(key="w_velocidad").value == "x60"
     assert at.session_state.sim.config.horno.B == pytest.approx((1300 - 30) / 3000)
@@ -77,7 +77,7 @@ def test_el_csv_tiene_las_columnas_esperadas():
     at = simular(abrir())
     sim = at.session_state.sim
     df = pd.read_csv(io.BytesIO(datos.csv(sim.historial)))
-    assert list(df.columns) == ["t_s", "T", "T_set", "error", "u", "P", "I", "D", "perturbacion", "T_medida"]
+    assert list(df.columns) == list(datos.COLUMNAS_CSV)
     assert len(df) == len(sim.historial) == 7200
     assert at.get("download_button"), "falta el botón de descarga"
 
@@ -147,3 +147,31 @@ def test_dos_sesiones_no_se_afectan():
     assert sb.config.horno.T_SET == 1000.0 and sb.config.pid.KP == 200
     assert valores(b)["Sobrepaso"] == "0.54 %"
     assert sa.historial.setpoints[-1] == 700.0
+
+
+def test_modo_manual_desde_la_barra_lateral():
+    at = abrir()
+    at.segmented_control(key="w_modo_control").set_value("Manual").run()
+    at.slider(key="w_potencia_manual").set_value(76.4).run()
+    simular(at)
+    sim = at.session_state.sim
+    assert sim.config.pid.modo_control == "manual"
+    assert all(u == pytest.approx(0.764) for u in sim.historial.potencias)
+
+
+def test_limite_de_potencia_desde_la_barra_lateral():
+    at = abrir()
+    at.slider(key="w_limite").set_value(60).run()
+    simular(at)
+    sim = at.session_state.sim
+    assert max(sim.historial.potencias) == pytest.approx(0.6) and sim.T < 800
+
+
+def test_triac_compensado_desde_la_barra_lateral():
+    at = abrir()
+    at.selectbox(key="w_actuador").set_value("triac_compensado").run()
+    simular(at)
+    sim = at.session_state.sim
+    assert sim.config.actuador.modo == "triac_compensado"
+    assert sim.alfa == pytest.approx(64.65, abs=0.3) and abs(sim.T - 1000) < 0.5
+    assert at.table, "falta la tabla Newton contra bisección"

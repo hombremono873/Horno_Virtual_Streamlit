@@ -18,10 +18,13 @@ Misma disposición e identidad visual que el monitor de escritorio:
 - El eje de tiempo está en MINUTOS simulados.
 - Las series se diezman a ``datos.MAX_PUNTOS`` antes de dibujar.
 """
+import math
+
 import plotly.graph_objects as go
 
 from simulador_horno.configuracion import limites
 from simulador_horno.estilos import tema
+from simulador_horno.modelo.triac import angulo_compensado, fraccion_potencia
 from simulador_horno.web.datos import diezmar, indices_diezmados, indices_ventana
 
 ALTO = 640
@@ -101,7 +104,7 @@ def _titulo(texto, x, y):
 
 
 def figura_monitor(historial, duracion=None, anterior=None, T_amb=None,
-                   ventana_min=tema.G_VENTANA_ESCALA_MIN, muestras_visibles=None):
+                   ventana_min=tema.G_VENTANA_ESCALA_MIN, muestras_visibles=None, mostrar_entregada=False):
     """Figura del monitor.
 
     ``duracion`` (s) fija el eje x en [0, duración]; ``anterior`` es una
@@ -111,6 +114,9 @@ def figura_monitor(historial, duracion=None, anterior=None, T_amb=None,
     ``muestras_visibles`` (modo en vivo): solo se dibujan las últimas N
     muestras y el eje de tiempo abarca N muestras; cuando se llena, la
     gráfica se corre de derecha a izquierda.
+
+    ``mostrar_entregada``: con un triac, dibuja también la potencia que de
+    verdad llegó al horno (punteada) junto a la u que pidió el control.
     """
     if muestras_visibles is None:
         idx = indices_diezmados(len(historial))
@@ -141,6 +147,10 @@ def figura_monitor(historial, duracion=None, anterior=None, T_amb=None,
     fig.add_trace(go.Scatter(x=minutos, y=actual["potencias"], name="u",
                              line=dict(color=tema.G_CORRIDAS[0], width=1.3), opacity=0.8,
                              xaxis="x2", yaxis="y3"))
+    if mostrar_entregada:
+        fig.add_trace(go.Scatter(x=minutos, y=diezmar(historial.fracciones, idx), name="Potencia entregada",
+                                 line=dict(color=tema.G_SETPOINT, width=1.3, dash="dot"),
+                                 xaxis="x2", yaxis="y3"))
     fig.add_trace(go.Heatmap(
         x=minutos, y=[0], z=[actual["temperaturas"]], name="Franja térmica",
         colorscale=tema.MAPA_TERMICO.capitalize(), zmin=limites.TEMP_MIN_COLOR, zmax=limites.TEMP_MAX_COLOR,
@@ -194,4 +204,46 @@ def figura_monitor(historial, duracion=None, anterior=None, T_amb=None,
     if hay_datos:
         s = semirango(minutos, actual["temperaturas"], actual["errores"], T_set, ventana_min)
         fig.update_layout(yaxis_range=[T_set - s, T_set + s], yaxis2_range=[-s, s])
+    return fig
+
+
+def figura_actuador(sim):
+    """Curva del triac: fracción de potencia contra ángulo de disparo, con el punto de trabajo.
+
+    - Curva real: 1 − α/180 + sen(2α)/(2π).
+    - Recta: lo que supone el ángulo lineal (α = 180·(1 − u)).
+    - Punto de trabajo: el ángulo actual y la potencia que de verdad llega;
+      con el ángulo lineal se ve además la potencia que pidió el PID.
+    """
+    act = sim.config.actuador
+    angulos = [i * 0.5 for i in range(361)]
+    fig = go.Figure()
+    for x0, x1 in ((0, act.alfa_min), (act.alfa_max, 180)):
+        fig.add_vrect(x0=x0, x1=x1, fillcolor=tema.G_CERO, opacity=0.25, line_width=0)
+    fig.add_trace(go.Scatter(x=angulos, y=[1 - a / 180 for a in angulos], name="Supuesto del ángulo lineal",
+                             line=dict(color=tema.G_CERO, width=1.5, dash="dash")))
+    fig.add_trace(go.Scatter(x=angulos, y=[fraccion_potencia(a) for a in angulos], name="Potencia real del triac",
+                             line=dict(color=tema.G_TEMP, width=2.5)))
+    u = sim.u
+    if act.modo == "ideal":
+        alfa, _ = angulo_compensado(u) if 0 < u < 1 else (180.0 if u <= 0 else 0.0, 0)
+        puntos = [(alfa, u, "Ángulo que haría falta", tema.G_SETPOINT)]
+    else:
+        puntos = [(sim.alfa, sim.fraccion, "Potencia entregada", tema.G_SETPOINT)]
+        if act.modo == "triac_lineal":
+            puntos.append((sim.alfa, u, "Potencia pedida (u)", tema.G_ERROR))
+    for alfa, y, nombre, color in puntos:
+        if not math.isnan(alfa):
+            fig.add_trace(go.Scatter(x=[alfa], y=[y], name=nombre, mode="markers+text",
+                                     marker=dict(size=13, color=color, line=dict(color="#000", width=1)),
+                                     text=[f"{alfa:.1f}° · {y * 100:.1f} %"],
+                                     textposition="top right" if y < 0.85 else "bottom right"))
+    fig.add_hline(y=u, line=dict(color=tema.G_ERROR, width=1, dash="dot"))
+    fig.update_layout(
+        template=PLANTILLA, height=430, margin=dict(l=64, r=20, t=30, b=50),
+        xaxis=dict(title=dict(text="Ángulo de disparo α (grados)"), range=[0, 180], dtick=30),
+        yaxis=dict(title=dict(text="Fracción de la potencia máxima"), range=[-0.02, 1.05], tickformat=".0%"),
+        legend=dict(orientation="h", y=1.02, yanchor="bottom", x=1, xanchor="right"),
+        uirevision="actuador",
+    )
     return fig

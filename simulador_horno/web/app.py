@@ -24,12 +24,15 @@ from simulador_horno.estilos import tema
 from simulador_horno.numerico.integradores import METODOS, NOMBRES as NOMBRES_METODOS
 from simulador_horno.simulacion.simulador import Simulador
 from simulador_horno import creditos
+from simulador_horno.modelo import triac
 from simulador_horno.web import bienvenida, datos, graficas, monitor
 from simulador_horno.web import indicadores as ind
 from simulador_horno.web.ejecucion import EjecucionEnVivo
 
 DEFECTO = Configuracion()
 MODOS = ("Corrida completa", "En vivo")
+CONTROLES = ("Automático", "Manual")
+MANUAL_POR = ("Potencia (%)", "Ángulo α (°)")
 DURACIONES = limites.DURACIONES_HORAS
 SEMILLA_DEFECTO = 2026
 
@@ -62,6 +65,17 @@ def _aplicar_widgets(sim):
     c.simulacion.duracion_horas = ss.w_duracion
     c.simulacion.velocidad = ss.w_velocidad
     sim.semilla = int(ss.w_semilla) if ss.w_fijar_semilla else None
+    # control y actuador (algunos widgets solo existen en un modo: se leen con valor por defecto)
+    c.pid.modo_control = "manual" if ss.get("w_modo_control") == "Manual" else "automatico"
+    c.pid.limite_potencia = ss.get("w_limite", 100) / 100
+    c.pid.potencia_manual = _potencia_manual(ss)
+    a = c.actuador
+    a.modo = ss.get("w_actuador", DEFECTO.actuador.modo)
+    a.metodo = ss.get("w_metodo_inversion", DEFECTO.actuador.metodo)
+    a.V_red = float(ss.get("w_V_red", DEFECTO.actuador.V_red))
+    a.potencia_nominal = float(ss.get("w_P_nominal", DEFECTO.actuador.potencia_nominal))
+    a.resolucion = float(ss.get("w_resolucion", DEFECTO.actuador.resolucion))
+    a.dispersion = float(ss.get("w_dispersion", DEFECTO.actuador.dispersion))
 
 
 # ---- acciones de los botones (corren antes de dibujar la página) ------
@@ -122,6 +136,57 @@ def _formato_duracion(horas):
     return f"{horas * 60:g} min" if horas < 1 else f"{horas:g} h"
 
 
+def _control_y_actuador():
+    """Automático (PID, con límite de potencia) o manual (el usuario fija la potencia), y el triac."""
+    ss = st.session_state
+    a = DEFECTO.actuador
+    control = st.segmented_control("Control", CONTROLES, default=CONTROLES[0], required=True,
+                                   key="w_modo_control", width="stretch",
+                                   help="Automático: el PID decide la potencia. Manual: la decides tú "
+                                        "(lazo abierto: nadie corrige las perturbaciones).")
+    if control == "Automático":
+        st.slider("Límite de potencia (%)", 10, 100, 100, 1, key="w_limite",
+                  help="Máxima potencia que el PID puede usar. Con poco límite el horno no llega al setpoint.")
+    else:
+        por = st.radio("Fijar la potencia por", MANUAL_POR, horizontal=True, key="w_manual_por")
+        if por == MANUAL_POR[0]:
+            pct = st.slider("Potencia (%)", 0.0, 100.0, 50.0, 0.1, key="w_potencia_manual")
+            if 0 < pct < 100:
+                alfa, _ = triac.angulo_compensado(pct / 100)
+                st.caption(f"Equivale a un ángulo de disparo α = **{alfa:.2f}°**.")
+        else:
+            alfa = st.slider("Ángulo de disparo α (°)", a.alfa_min, a.alfa_max, 90.0, 0.05, key="w_alfa_manual")
+            st.caption(f"Entrega el **{triac.fraccion_potencia(alfa) * 100:.2f} %** de la potencia.")
+        st.caption(f"Temperatura final sin perturbaciones ≈ "
+                   f"**{_temperatura_final(ss):.0f} °C** (ambiente + potencia × (T_MAX_EQ − ambiente)).")
+    st.selectbox("Actuador", list(triac.MODOS), format_func=triac.MODOS.get,
+                 index=list(triac.MODOS).index(a.modo), key="w_actuador",
+                 help="Ideal: llega exactamente la potencia pedida. Triac lineal: α = 180·(1 − u), entrega "
+                      "otra potencia. Triac compensado: invierte la curva con un método numérico.")
+    st.selectbox("Método para invertir la curva", list(triac.METODOS_INVERSION),
+                 format_func=triac.METODOS_INVERSION.get, key="w_metodo_inversion",
+                 disabled=ss.get("w_actuador", a.modo) != "triac_compensado")
+    c1, c2 = st.columns(2)
+    c1.selectbox("Red (V)", (220.0, 120.0), index=0, key="w_V_red")
+    c2.number_input("Potencia (W)", 200.0, 50000.0, a.potencia_nominal, 100.0, key="w_P_nominal")
+    c1.number_input("Resolución (°)", 0.0, 10.0, a.resolucion, 0.5, key="w_resolucion",
+                    help="Paso del temporizador de disparo. 0 = continuo.")
+    c2.number_input("Dispersión (°)", 0.0, 10.0, a.dispersion, 0.1, key="w_dispersion",
+                    help="Desviación típica del instante de disparo (usa la semilla de la corrida).")
+
+
+def _potencia_manual(ss):
+    if ss.get("w_manual_por", MANUAL_POR[0]) == MANUAL_POR[1]:
+        return triac.fraccion_potencia(ss.get("w_alfa_manual", 90.0))
+    return ss.get("w_potencia_manual", 50.0) / 100
+
+
+def _temperatura_final(ss):
+    """Equilibrio en lazo abierto: T_AMB + potencia·(T_MAX_EQ − T_AMB)."""
+    T_amb, T_max = ss.get("w_T_AMB", DEFECTO.horno.T_AMB), ss.get("w_T_MAX_EQ", DEFECTO.horno.T_MAX_EQ)
+    return T_amb + _potencia_manual(ss) * (T_max - T_amb)
+
+
 def _barra_lateral(ss):
     sim = ss.sim
     with st.sidebar:
@@ -154,6 +219,9 @@ def _barra_lateral(ss):
                       disabled=st.session_state.get("w_anti_windup", p.anti_windup) != "recorte",
                       help=f"Solo en modo «Recorte»: si la integral supera {limites.UMBRAL_INTEGRAL} "
                            "se multiplica por este factor.")
+
+        with st.expander("Control y actuador (triac)", expanded=True):
+            _control_y_actuador()
 
         with st.expander("Perturbaciones"):
             for tipo in ("medición", "horno"):
@@ -219,11 +287,40 @@ def _monitor(ss, modo):
         sim.historial, sim.duracion, anterior, T_amb=sim.config.horno.T_AMB,
         ventana_min=tema.G_VENTANA_ESCALA_MIN if en_vivo_modo else None,
         muestras_visibles=limites.MUESTRAS_MONITOR if en_vivo_modo else None,
+        mostrar_entregada=sim.config.actuador.modo != "ideal",
     )
     monitor.lienzo(figura, [f"⏱ {ind.hhmmss(sim.t)}"] + ind.estado(sim, ss.en_vivo))
     if ss.en_vivo and sim.terminada:
         ss.en_vivo = False
         st.rerun()   # detiene el refresco automático y actualiza los botones
+
+
+def _actuador(ss):
+    """La curva del triac con el punto de trabajo actual (se actualiza en vivo)."""
+    monitor.grafica(graficas.figura_actuador(ss.sim), key="grafica_triac")
+
+
+def _explicacion_triac():
+    """Texto y tabla fija: cómo funciona el triac y cómo se invierte su curva."""
+    st.markdown(
+        "El **triac** recorta cada medio ciclo de la red: espera un **ángulo de disparo α** y conduce "
+        "desde ahí. La potencia que entrega **no es proporcional** al ángulo:\n\n"
+        "`fracción de potencia = 1 − α/180 + sen(2α) / (2 × 3,1416)`\n\n"
+        "Si se usa el ángulo lineal α = 180 × (1 − u), el horno recibe otra potencia que la pedida "
+        "(con u = 76,4 % llega el 92,3 %). Para entregar exactamente u hay que **invertir la curva**: "
+        "hallar α tal que fracción(α) = u. La ecuación no se despeja; se resuelve con **bisección** o "
+        "**Newton-Raphson**. Las zonas grises son ángulos que el circuito no puede disparar (menos de "
+        f"{DEFECTO.actuador.alfa_min:g}° o más de {DEFECTO.actuador.alfa_max:g}°)."
+    )
+    filas = []
+    for u in (0.001, 0.05, 0.25, 0.5, 0.764, 0.9, 0.99, 0.999):
+        a_n, it_n = triac.angulo_por_newton(u)
+        a_b, it_b = triac.angulo_por_biseccion(u)
+        filas.append({"Potencia pedida": f"{u * 100:g} %", "Ángulo α": f"{a_n:.4f}°",
+                      "Iteraciones Newton": it_n, "Iteraciones bisección": it_b,
+                      "Ángulo lineal entregaría": f"{triac.fraccion_potencia(triac.angulo_lineal(u)) * 100:.1f} %"})
+    st.caption("Newton-Raphson contra bisección (tolerancia 1e-9 grados):")
+    st.table(filas)
 
 
 def _tablero(ss, modo):
@@ -287,12 +384,19 @@ def main():
     def fragmento_tablero():
         _tablero(ss, modo)
 
+    @st.fragment(run_every=intervalo)
+    def fragmento_actuador():
+        _actuador(ss)
+
     # Pestañas normales: cambiar de pestaña no vuelve a ejecutar Python, así
     # que la corrida en vivo sigue avanzando mientras se mira la otra.
-    pestana_monitor, pestana_valores = st.tabs(["📈 Monitor", "🔢 Indicadores"])
+    pestana_monitor, pestana_valores, pestana_triac = st.tabs(["📈 Monitor", "🔢 Indicadores", "⚡ Actuador"])
     with pestana_monitor:
         fragmento_monitor()
     with pestana_valores:
         fragmento_tablero()
         if not ss.en_vivo:
             _resultados(ss.sim)
+    with pestana_triac:
+        fragmento_actuador()
+        _explicacion_triac()

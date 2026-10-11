@@ -140,3 +140,9 @@ def tablero(grupos, estado):
     """Monta o actualiza las tarjetas de indicadores."""
     datos = {"grupos": [[nombre, [list(f) for f in filas]] for nombre, filas in grupos], "estado": list(estado)}
     return _componente()(key="tablero_horno", data=datos)
+
+
+def grafica(figura, key):
+    """Cualquier otra figura que se actualiza en vivo sin parpadeo (p. ej. la del triac)."""
+    datos = {"figura": pio.to_json(figura, validate=False), "estado": []}
+    return _componente()(key=key, data=datos)

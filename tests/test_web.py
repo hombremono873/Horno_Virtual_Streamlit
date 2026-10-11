@@ -246,6 +246,8 @@ def test_tablero_agrupado():
     sim = Simulador()
     sim.completar()
     grupos = dict(ind.tablero(sim, True, sim.metricas()))
-    assert list(grupos) == ["Proceso", "Controlador PID", "Desempeño", "Ejecución"]
+    assert list(grupos) == ["Proceso", "Controlador PID", "Desempeño", "Ejecución", "Actuador",
+                           "Horno (inercia térmica)"]
+    assert dict(grupos["Horno (inercia térmica)"])["Capacidad térmica C = P/B"] == "7,087 J/°C"
     assert dict(grupos["Proceso"])["Temperatura"] == "1000.0 °C"
     assert dict(grupos["Ejecución"])["Método"] == "Euler"

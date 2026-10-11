@@ -6,9 +6,11 @@ import pandas as pd
 
 MAX_PUNTOS = 2000   # puntos por curva que se envían al navegador
 
-COLUMNAS_CSV = ("t_s", "T", "T_set", "error", "u", "P", "I", "D", "perturbacion", "T_medida")
+COLUMNAS_CSV = ("t_s", "T", "T_set", "error", "u", "P", "I", "D", "perturbacion", "T_medida",
+                "alfa_grados", "fraccion_potencia", "potencia_W", "energia_kWh")
 _DECIMALES = {"t_s": 1, "T": 4, "T_set": 4, "error": 4, "u": 5, "P": 5, "I": 5, "D": 5,
-              "perturbacion": 4, "T_medida": 4}
+              "perturbacion": 4, "T_medida": 4,
+              "alfa_grados": 4, "fraccion_potencia": 6, "potencia_W": 2, "energia_kWh": 6}
 
 
 def indices_diezmados(n, maximo=MAX_PUNTOS):
@@ -50,6 +52,8 @@ def tabla(historial):
     - ``perturbacion``: lo que las perturbaciones de la medición sumaron al
       error (error visto − error real).
     - ``T_medida``: la temperatura que leyó el controlador (T_set − error).
+    - ``alfa_grados``: ángulo de disparo del triac (vacío en modo ideal);
+      ``fraccion_potencia``: la potencia que LLEGÓ (u es la pedida).
     """
     h = historial
     df = pd.DataFrame({
@@ -61,6 +65,10 @@ def tabla(historial):
         "P": h.proporcionales,
         "I": h.integrales,
         "D": h.derivativos,
+        "alfa_grados": h.alfas,
+        "fraccion_potencia": h.fracciones,
+        "potencia_W": h.potencias_w,
+        "energia_kWh": h.energias_kwh,
     })
     df["perturbacion"] = df["error"] - (df["T_set"] - df["T"])
     df["T_medida"] = df["T_set"] - df["error"]
