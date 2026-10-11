@@ -146,20 +146,35 @@ def angulo_compensado(u, metodo="newton", tol=TOLERANCIA):
 def disparo_real(alfa, alfa_min, alfa_max, resolucion=0.0, dispersion=0.0, rng=None):
     """Lo que hace un circuito de disparo real con el ángulo pedido.
 
-    - Sin disparo (α ≥ 180°) el triac queda apagado.
-    - El ángulo queda entre los límites físicos [alfa_min, alfa_max]: muy
-      cerca de 0° o de 180° no hay voltaje suficiente para disparar.
+    En los extremos del medio ciclo el triac no puede regular:
+
+    - Más tarde que ``alfa_max`` (cerca de 180°) el medio ciclo se está
+      acabando: la corriente no alcanza la de mantenimiento y el triac no
+      conduce. Queda APAGADO (180°, 0 % de potencia).
+    - Antes que ``alfa_min`` (cerca de 0°) apenas hay voltaje para cebarlo.
+      Los controladores dejan entonces la compuerta activa todo el ciclo:
+      CONDUCCIÓN COMPLETA (0°, 100 % de potencia).
+
+    Entre los dos límites:
+
     - ``dispersion`` (grados, desviación típica): el disparo no es exacto.
     - ``resolucion`` (grados): el temporizador solo da ángulos múltiplos de ella.
+
+    Si la dispersión lleva el disparo más allá de ``alfa_max``, ese medio
+    ciclo el triac no conduce; si lo adelanta antes de ``alfa_min``, dispara
+    en ``alfa_min``.
     """
-    if alfa >= ALFA_APAGADO:
+    if alfa > alfa_max:
         return ALFA_APAGADO
-    alfa = min(max(alfa, alfa_min), alfa_max)
+    if alfa < alfa_min:
+        return 0.0
     if dispersion > 0.0 and rng is not None:
         alfa += rng.gauss(0.0, dispersion)
     if resolucion > 0.0:
         alfa = round(alfa / resolucion) * resolucion
-    return min(max(alfa, alfa_min), alfa_max)
+    if alfa > alfa_max:
+        return ALFA_APAGADO
+    return max(alfa, alfa_min)
 
 
 # ======================================================================

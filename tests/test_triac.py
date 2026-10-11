@@ -66,8 +66,13 @@ def test_extremos():
 
 
 def test_disparo_real():
-    assert triac.disparo_real(180.0, 10, 170) == 180.0                  # apagado
-    assert triac.disparo_real(3.0, 10, 170) == 10.0                     # límite físico
+    assert triac.disparo_real(180.0, 10, 170) == 180.0                  # sin disparo: apagado
+    assert triac.disparo_real(175.0, 10, 170) == 180.0                  # demasiado tarde: no conduce
+    assert triac.disparo_real(3.0, 10, 170) == 0.0                      # demasiado pronto: ciclo completo
+    assert triac.disparo_real(10.0, 10, 170) == 10.0 and triac.disparo_real(170.0, 10, 170) == 170.0
+    rng = random.Random(1)                                              # la dispersión cerca del borde
+    cerca = [triac.disparo_real(169.8, 10, 170, 0.0, 1.0, rng) for _ in range(200)]
+    assert 180.0 in cerca and all(a == 180.0 or a <= 170.0 for a in cerca)
     assert triac.disparo_real(64.65, 10, 170, resolucion=1.0) == 65.0   # resolución del temporizador
     rng_a, rng_b = random.Random(5), random.Random(5)
     a = [triac.disparo_real(64.65, 10, 170, 0.0, 0.5, rng_a) for _ in range(500)]
@@ -114,7 +119,9 @@ def test_compensado_entrega_lo_que_pide_el_pid():
         if minimo < u < maximo:                       # dentro de los límites físicos del disparo
             assert f == pytest.approx(u, abs=1e-9)
         elif u >= maximo:
-            assert f == pytest.approx(maximo)         # el triac no llega al 100 %
+            assert f == 1.0                           # ángulo < 10°: conduce el ciclo completo
+        elif 0 < u <= minimo:
+            assert f == 0.0                           # ángulo > 170°: no alcanza a conducir
     assert sim.alfa == pytest.approx(64.65, abs=0.2)  # régimen: ~76,4 % de potencia
     assert abs(sim.T - 1000.0) < 0.5
 

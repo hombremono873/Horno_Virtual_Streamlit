@@ -309,8 +309,12 @@ def _explicacion_triac():
         "Si se usa el ángulo lineal α = 180 × (1 − u), el horno recibe otra potencia que la pedida "
         "(con u = 76,4 % llega el 92,3 %). Para entregar exactamente u hay que **invertir la curva**: "
         "hallar α tal que fracción(α) = u. La ecuación no se despeja; se resuelve con **bisección** o "
-        "**Newton-Raphson**. Las zonas grises son ángulos que el circuito no puede disparar (menos de "
-        f"{DEFECTO.actuador.alfa_min:g}° o más de {DEFECTO.actuador.alfa_max:g}°)."
+        "**Newton-Raphson**.\n\n"
+        f"**Zonas grises:** en los extremos el triac no puede regular. Si el ángulo pedido es menor que "
+        f"{DEFECTO.actuador.alfa_min:g}° apenas hay voltaje para cebarlo, y el circuito deja la compuerta "
+        "activa todo el ciclo: **conducción completa (100 %)**. Si es mayor que "
+        f"{DEFECTO.actuador.alfa_max:g}° el medio ciclo se está acabando, la corriente no alcanza la de "
+        "mantenimiento y el triac **no conduce (0 %)**."
     )
     filas = []
     for u in (0.001, 0.05, 0.25, 0.5, 0.764, 0.9, 0.99, 0.999):
