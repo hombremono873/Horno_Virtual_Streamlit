@@ -41,6 +41,7 @@ Esta es la **versión web**, pensada para usarse desde el navegador sin instalar
 | **Horno** | T ambiente, setpoint, T máx. de equilibrio, **T inicial** (arranque en frío o en caliente) y τ. Muestra **B** calculado |
 | **Controlador PID** | Kp, Ki, Kd, anti-windup (ninguno, recorte, **integración condicional**) y el factor de recorte |
 | **Perturbaciones** | 3 sobre la **medición** y 3 sobre el **horno real** (ver [Modelo y control](#modelo-y-control)) y los impulsos por hora |
+| **Control y actuador (triac)** | **Automático** (el PID decide, con un **límite de potencia**) o **Manual** (tú fijas la potencia en % o el ángulo de disparo α); tipo de actuador (ideal, triac lineal, triac compensado), método para invertir la curva, red (220/120 V), potencia nominal, resolución y dispersión del disparo |
 | **Simulación** | Duración (30 min a 8 h; *sin límite* solo en vivo), velocidad (en vivo), método numérico, Δt y **semilla** |
 
 **En vivo** se pueden cambiar el setpoint, las ganancias y las perturbaciones a mitad de la corrida y ver cómo reacciona el controlador. El método numérico, la T inicial y la duración se aplican al **reiniciar**. Cuando ocurre un impulso en la medición aparece un aviso ⚡.
@@ -60,6 +61,9 @@ Esta es la **versión web**, pensada para usarse desde el navegador sin instalar
 | **Puerta abierta** | Perturbación *Apertura de puerta* | Caídas de hasta ~50 °C en régimen y la recuperación del PID |
 | **Red eléctrica** | Perturbación *Fluctuación de la red* | La temperatura oscila ±3 °C alrededor del setpoint |
 | **Sensor vs. realidad** | Perturbación *Ruido del termopar* | El controlador lee ±1 °C de ruido, pero el horno apenas se mueve |
+| **Triac no lineal** | Actuador *Triac, ángulo lineal* y luego *Triac compensado* | Con el ángulo lineal llega más potencia de la pedida y el PID pide menos para compensar; compensado, llega lo pedido |
+| **Lazo abierto vs. cerrado** | Control *Manual* al 76,4 % con *Apertura de puerta*; luego *Automático* | En manual el horno llega a 1000 °C pero más lento y no se recupera de las aperturas; el PID sí |
+| **Potencia insuficiente** | Control *Automático* con límite de potencia 60 % | El horno se queda en ~792 °C: el límite no alcanza para 1000 °C |
 
 Para comparar dos corridas, cambia **una sola cosa** a la vez y usa la **misma duración**. Con perturbaciones, usa la **misma semilla** para que el azar sea idéntico en ambas y la diferencia se deba solo a lo que cambiaste.
 
@@ -130,6 +134,30 @@ Para IAE e ISE, **menor es mejor**, y solo son comparables entre corridas de la 
 
 ---
 
+## El triac: cómo llega la energía al horno
+
+En un horno real la potencia se regula con un **triac**: en cada medio ciclo de la red espera un **ángulo de disparo α** (0° a 180°) y conduce desde ahí. Con α = 0° pasa toda la potencia; con 90°, la mitad; con 180°, nada. La potencia **no es proporcional** al ángulo:
+
+```
+fracción de potencia = 1 − α/180 + sen(2α) / (2 × 3,1416)
+```
+
+El camino completo es: el PID calcula **u** (la potencia que pide), el actuador la convierte en un ángulo, el triac recorta la onda y llega la **potencia real**, que es la que calienta el horno. Hay tres actuadores para comparar:
+
+| Actuador | Qué hace | Qué se observa |
+|---|---|---|
+| **Ideal** (por defecto) | Llega exactamente la u pedida | El comportamiento de siempre |
+| **Triac, ángulo lineal** | α = 180 × (1 − u) | Llega otra potencia: con u = 76,4 % llega el 92,3 %. El PID lo compensa pidiendo menos |
+| **Triac compensado** | Halla α tal que fracción(α) = u | Llega lo pedido. La ecuación no se despeja: se resuelve con **Newton-Raphson** (1 a 11 iteraciones) o **bisección** (38 iteraciones) |
+
+Para mantener 1000 °C el horno necesita el 76,4 % de su potencia, es decir, un ángulo de **64,65°**. La pestaña **⚡ Actuador** muestra la curva con el punto de trabajo en vivo y la tabla de iteraciones de los dos métodos.
+
+**Unidades reales.** Con la potencia nominal (3000 W por defecto) se calculan los vatios, la corriente y la **energía consumida** (kWh). También la **inercia térmica** del horno: capacidad térmica C = potencia / B (≈ 7087 J/°C) y pérdidas h = C / τ (≈ 2,36 W/°C). Un horno pequeño tiene menos C: con la misma potencia calienta y se enfría más rápido, y le afectan más las perturbaciones.
+
+**Manual y automático.** En **manual** tú decides la potencia (en % o en ángulo) y el setpoint queda solo como referencia: sin perturbaciones el horno llega a ambiente + potencia × (T_MAX_EQ − ambiente), pero si abres la puerta nadie corrige. Al volver a **automático** el PID continúa desde la misma potencia, sin golpe (transferencia sin salto). En automático, el **límite de potencia** impide que el PID pida más de lo fijado: con 60 % el horno no pasa de 30 + 0,6 × 1270 ≈ 792 °C.
+
+---
+
 ## Resultados en archivo
 
 El botón **⬇ Descargar la corrida (CSV)** entrega un archivo estándar (separador `,` y punto decimal) con una fila por segundo simulado:
@@ -144,6 +172,9 @@ El botón **⬇ Descargar la corrida (CSV)** entrega un archivo estándar (separ
 | `P`, `I`, `D` | aporte de cada término del PID; `P + I + D` es u antes de saturar a [0, 1] |
 | `perturbacion` | lo que las perturbaciones de la medición sumaron al error (°C) |
 | `T_medida` | la temperatura que leyó el controlador, `T_set − error` (°C) |
+| `alfa_grados` | ángulo de disparo del triac (vacío con el actuador ideal) |
+| `fraccion_potencia` | la potencia que **llegó** al horno (u es la que se pidió) |
+| `potencia_W`, `energia_kWh` | potencia eléctrica (W) y energía consumida desde el inicio (kWh) |
 
 Para abrirlo en Excel en español: *Datos → Desde texto/CSV* y elige el delimitador **coma**.
 
@@ -188,7 +219,7 @@ simulador/
 ├── documentos/                 # traspaso y plan de la versión web
 └── simulador_horno/
     ├── configuracion/          # ¿con qué parámetros?   Configuracion (horno, PID, perturbaciones, simulación), límites
-    ├── modelo/                 # ¿qué se simula?        horno, perturbaciones, actuador
+    ├── modelo/                 # ¿qué se simula?        horno, perturbaciones, triac
     ├── control/                # ¿quién controla?       PID, anti-windup, saturación, error
     ├── numerico/               # ¿con qué método?       integradores, comparación, estabilidad
     ├── simulacion/             # ¿quién coordina?       Simulador, reloj, historial, métricas, resultados

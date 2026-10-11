@@ -9,7 +9,7 @@ Simulador **pedagógico** de un horno eléctrico con control PID (Métodos Numé
 
 ## Comandos (desde `simulador/`)
 ```bash
-.venv\Scripts\python -m pytest                    # 198 pruebas, ~20 s (-s muestra métricas)
+.venv\Scripts\python -m pytest                    # 239 pruebas, ~30 s (-s muestra métricas)
 .venv\Scripts\python -m streamlit run streamlit_app.py   # http://localhost:8501
 ```
 - El usuario levanta la app con `iniciar_web.bat` (usa `.venv` explícito): su perfil de PowerShell tiene un `activate` que activa el entorno de otro proyecto (`usersdj`), así que nunca le des comandos con `python` a secas. `.vscode/settings.json` (en la carpeta de arriba, fuera del repo) apunta las terminales a `simulador\.venv`.
@@ -22,7 +22,7 @@ Simulador **pedagógico** de un horno eléctrico con control PID (Métodos Numé
 simulador_horno/
 ├── configuracion/  parametros (dataclasses: ParametrosHorno, ParametrosPID, Perturbaciones,
 │                   ParametrosSimulacion → Configuracion), limites (constantes no editables)
-├── modelo/         horno (derivada, Euler), perturbaciones (Impulso, EventoAleatorio, Perturbador), actuador (sin conectar)
+├── modelo/         horno (derivada, Euler), perturbaciones (Impulso, EventoAleatorio, Perturbador), triac (curva, inversión, Triac)
 ├── control/        pid (calcular_pid puro + clase PID), anti_windup, escalado (u∈[0,1]), senal_error
 ├── numerico/       integradores (METODOS/NOMBRES/ORDEN/EVALUACIONES), comparacion (vs. exacta), estabilidad (R(z))
 ├── simulacion/     simulador (Simulador: una corrida, sin E/S), reloj, historial, metricas, resultados (CSV)
@@ -42,6 +42,8 @@ Un paso: `Simulador.paso` → `construir_error` → `PID.paso` → **registrar**
 ## Decisiones y trampas (no las rompas sin querer)
 - **No regresión** (`tests/test_no_regresion.py`, `tests/referencias/*.json`): huellas SHA-256 de `(t, T, error, u)` de 9 escenarios generadas ANTES de encapsular; deben coincidir **bit a bit**, también con perturbaciones, en Windows (donde se generaron). En Linux (CI) las de semilla difieren en el último bit (`sin`/`gauss` de otra libm, ~1e-15): ahí la prueba exige contadores exactos y estadísticas de las series (`series` en los JSON) con tolerancia relativa 1e-9; las corridas sin azar siguen bit a bit en todo sistema. Para ello, conserva el **orden en que se consume el generador**: medición (gauss del termopar → uniform oscilante → uniform + random del impulso) y luego la puerta. Regenerar solo si el cambio de resultados es intencional (`REGENERAR_REFERENCIAS=1`).
 - **Una sola ecuación:** `modelo.horno.derivada(T, u, horno, entorno)` la usan los tres métodos. Con `ENTORNO_IDEAL` es bit a bit la fórmula original.
+- **Triac (`modelo/triac.py`, `ParametrosActuador`):** el integrador recibe la FRACCIÓN que entrega el triac, no la u del PID (`Simulador.paso`: PID → entorno → `triac.aplicar` → registrar → integrar). Modo `ideal` (defecto) devuelve la misma u: corridas de referencia intactas. Curva `1 − α/180 + sen(2α)/(2π)`; inversión por bisección (38 it.) o Newton protegido (1–11 it., cae a bisección donde la derivada `−2sen²α/180` es casi 0; comprueba convergencia ANTES del respaldo, si no se queda bisecando). Límites 10°–170° (`THETA_*`): el triac no da 100 % (máx. 99,89 %). La dispersión del disparo usa `perturbador.rng` DESPUÉS de la puerta. `potencia_w = fracción × P_nominal × (V/Vn)²`; energía acumulada en J.
+- **Manual/automático y límite (`ParametrosPID.modo_control`, `potencia_manual`, `limite_potencia`):** en manual `PID.seguir` ajusta la integral para que P+I+D = u (transferencia sin salto al volver). El límite satura u en `limite_potencia` y el anti-windup condicional compara con ese tope (`limitar(..., u_tope)`). Con límite 1 y automático todo es bit a bit igual.
 - **Física:** `B` es propiedad derivada de `ParametrosHorno` (`(T_MAX_EQ − T_AMB)/TAU`). `u ∈ [0, 1]`. `T_INICIAL` = arranque (= `T_AMB`, en frío). ~700 mil pasos/s (B se recalcula en cada evaluación; no lo caches sin invalidarlo).
 - **Velocidad ≠ física:** nunca cambia `DT`. N = factor/(HZ·DT) con fracción acumulada (`reloj.pasos_por_refresco`). La duración se respeta con `avanzar_sin_pasarse` / `completar`; `avanzar(n)` no mira la duración.
 - **Registrar antes de integrar:** cada muestra `(t, T, error, u)` es del mismo instante.
@@ -64,11 +66,11 @@ Un paso: `Simulador.paso` → `construir_error` → `PID.paso` → **registrar**
 - **Dependencia:** fija la versión en `requirements.txt` (lo instala Streamlit Community Cloud).
 
 ## Pruebas (`tests/`, `pytest.ini` con `pythonpath = .`)
-No necesitan pantalla ni escriben fuera de `tmp_path`. Cubren: no regresión · independencia · física · perturbaciones (semilla, tasa independiente de DT) · perturbaciones del horno · control (sobrepaso 0,54 %, t90 58 min, establecimiento 71 min) · velocidad · duración · historial · integradores y comparación (orden 1/2/4) · estabilidad (2τ y 2,785τ) · anti-windup · derivada · métricas · resultados y lectura de corridas · arranque · capas · web (diezmado, CSV, figura, modo en vivo con reloj falso, tema) · app (AppTest: carga, corrida completa, CSV, widgets, superposición, semilla, en vivo, dos sesiones).
+No necesitan pantalla ni escriben fuera de `tmp_path`. Cubren: no regresión · independencia · física · perturbaciones (semilla, tasa independiente de DT) · perturbaciones del horno · control (sobrepaso 0,54 %, t90 58 min, establecimiento 71 min) · velocidad · duración · historial · integradores y comparación (orden 1/2/4) · estabilidad (2τ y 2,785τ) · anti-windup · derivada · métricas · resultados y lectura de corridas · arranque · capas · web (diezmado, CSV, figura, modo en vivo con reloj falso, tema) · app (AppTest: carga, corrida completa, CSV, widgets, superposición, semilla, en vivo, dos sesiones, manual, límite, triac) · triac (curva, derivada, ida y vuelta, Newton vs bisección, disparo real, integración) · manual (lazo abierto, perturbación sin corregir, transferencia sin salto, límite).
 
 ## Deuda técnica conocida
 1. El trapecio del primer paso usa `error_prev = 0` (efecto despreciable).
-2. `modelo/actuador.py` no está conectado.
+2. El modo "ciclos enteros" del actuador no está implementado (pendiente).
 3. Con la física actual el sobrepaso máximo es ~2 %; uno "de libro" requiere margen de potencia y retardo del termopar (pendiente, ver traspaso §6).
 4. `simulacion.resultados` (CSV en disco, `sys.frozen`) es herencia del escritorio y la web no lo usa; podría retirarse.
 5. Ideas para la web (no hechas): vistas de comparación de métodos y estabilidad (`numerico.comparacion`/`estabilidad` ya dan los datos), dashboard de varias corridas de la sesión, sintonía asistida.
