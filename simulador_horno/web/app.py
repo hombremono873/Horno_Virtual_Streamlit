@@ -167,7 +167,7 @@ def _control_y_actuador():
                  format_func=triac.METODOS_INVERSION.get, key="w_metodo_inversion",
                  disabled=ss.get("w_actuador", a.modo) != "triac_compensado")
     c1, c2 = st.columns(2)
-    c1.selectbox("Red (V)", (220.0, 110.0), index=0, key="w_V_red")
+    c1.selectbox("Red (VCA)", (220.0, 110.0), index=0, key="w_V_red")
     c2.number_input("Potencia (W)", 200.0, 50000.0, a.potencia_nominal, 100.0, key="w_P_nominal")
     c1.number_input("Resolución (°)", 0.0, 10.0, a.resolucion, 0.5, key="w_resolucion",
                     help="Paso del temporizador de disparo. 0 = continuo.")
