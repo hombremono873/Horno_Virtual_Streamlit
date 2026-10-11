@@ -1,0 +1,196 @@
+"""Triac: el actuador que gobierna la potencia eléctrica del horno.
+
+La resistencia del horno se alimenta con la red alterna. En cada medio
+ciclo el triac espera un ÁNGULO DE DISPARO α (0° a 180°) y conduce desde
+ahí hasta el final del medio ciclo:
+
+    α = 0°    conduce todo el medio ciclo    -> potencia máxima
+    α = 90°   conduce la mitad               -> la mitad de la potencia
+    α = 180°  no conduce                     -> apagado
+
+La potencia NO es proporcional al ángulo. Con α en grados:
+
+    fracción de potencia = 1 − α/180 + sen(2α) / (2π)
+
+Por eso convertir la señal del PID en ángulo "en línea recta"
+(α = 180·(1 − u)) entrega otra potencia que la pedida: con u = 0,764 da
+el 92,3 %. Para que el horno reciba lo que pide el PID hay que INVERTIR la
+curva: hallar α tal que fracción(α) = u. La ecuación es trascendente (no
+se despeja), así que se resuelve con métodos numéricos: bisección o
+Newton-Raphson.
+
+Todas las funciones son puras (sin estado global ni interfaz). El
+generador aleatorio de la dispersión del disparo se recibe como argumento.
+"""
+import math
+
+ALFA_APAGADO = 180.0    # sin disparo: el triac no conduce
+TOLERANCIA = 1e-9       # grados: precisión de la inversión numérica
+MAX_ITERACIONES = 200
+
+MODOS = {
+    "ideal": "Ideal (potencia = u)",
+    "triac_lineal": "Triac, ángulo lineal",
+    "triac_compensado": "Triac compensado (curva invertida)",
+}
+METODOS_INVERSION = {"newton": "Newton-Raphson", "biseccion": "Bisección"}
+
+
+# ======================================================================
+# La curva del triac
+# ======================================================================
+def fraccion_potencia(alfa):
+    """Fracción de la potencia máxima que entrega el triac con ángulo ``alfa`` (grados)."""
+    alfa = min(max(alfa, 0.0), 180.0)
+    return 1.0 - alfa / 180.0 + math.sin(2.0 * math.radians(alfa)) / (2.0 * math.pi)
+
+
+def derivada_fraccion(alfa):
+    """d(fracción)/dα, por grado: −2·sen²(α)/180. Vale 0 en 0° y 180° (curva plana)."""
+    s = math.sin(math.radians(alfa))
+    return -2.0 * s * s / 180.0
+
+
+def resistencia(potencia_nominal, V_red):
+    """Resistencia del horno (Ω) que da la potencia nominal con el triac abierto del todo."""
+    return V_red * V_red / potencia_nominal
+
+
+def voltaje_rms(alfa, V_red):
+    """Voltaje eficaz sobre la resistencia: V_red · raíz(fracción)."""
+    return V_red * math.sqrt(fraccion_potencia(alfa))
+
+
+def potencia_electrica(alfa, V_red, R):
+    """Potencia (W) que disipa la resistencia: V_red²/R · fracción."""
+    return V_red * V_red / R * fraccion_potencia(alfa)
+
+
+# ======================================================================
+# De la señal de control u al ángulo de disparo
+# ======================================================================
+def _acotar_u(u):
+    return min(max(u, 0.0), 1.0)
+
+
+def angulo_lineal(u):
+    """Conversión ingenua: α = 180·(1 − u). Entrega otra potencia que la pedida."""
+    return 180.0 * (1.0 - _acotar_u(u))
+
+
+def angulo_por_biseccion(u, tol=TOLERANCIA):
+    """Ángulo α con fracción(α) = u, por bisección. Devuelve ``(α, iteraciones)``.
+
+    La curva decrece de 1 (en 0°) a 0 (en 180°): siempre hay una raíz en
+    [0, 180] y cada iteración parte el intervalo a la mitad.
+    """
+    u = _acotar_u(u)
+    if u <= 0.0:
+        return ALFA_APAGADO, 0
+    if u >= 1.0:
+        return 0.0, 0
+    bajo, alto, iteraciones = 0.0, 180.0, 0
+    while alto - bajo > tol and iteraciones < MAX_ITERACIONES:
+        medio = 0.5 * (bajo + alto)
+        if fraccion_potencia(medio) > u:
+            bajo = medio        # todavía da más potencia de la pedida: hay que disparar más tarde
+        else:
+            alto = medio
+        iteraciones += 1
+    return 0.5 * (bajo + alto), iteraciones
+
+
+def angulo_por_newton(u, tol=TOLERANCIA):
+    """Ángulo α con fracción(α) = u, por Newton-Raphson protegido. Devuelve ``(α, iteraciones)``.
+
+    α_nuevo = α − (fracción(α) − u) / derivada(α)
+
+    Cerca de 0° y de 180° la curva es casi plana (derivada ≈ 0) y el paso
+    de Newton se dispara fuera del intervalo; en ese caso se da un paso de
+    bisección dentro del intervalo que contiene la raíz.
+    """
+    u = _acotar_u(u)
+    if u <= 0.0:
+        return ALFA_APAGADO, 0
+    if u >= 1.0:
+        return 0.0, 0
+    bajo, alto = 0.0, 180.0
+    alfa = angulo_lineal(u)         # punto de partida razonable
+    for iteraciones in range(1, MAX_ITERACIONES + 1):
+        g = fraccion_potencia(alfa) - u
+        if g == 0.0:
+            return alfa, iteraciones
+        if g > 0:
+            bajo = alfa
+        else:
+            alto = alfa
+        d = derivada_fraccion(alfa)
+        nuevo = alfa - g / d if d != 0.0 else math.inf
+        if abs(nuevo - alfa) <= tol:            # convergió (se comprueba antes del respaldo:
+            return nuevo, iteraciones           # en la raíz el paso cae en el borde del intervalo)
+        if not bajo < nuevo < alto:
+            nuevo = 0.5 * (bajo + alto)     # paso de bisección de respaldo
+        alfa = nuevo
+    return alfa, MAX_ITERACIONES
+
+
+def angulo_compensado(u, metodo="newton", tol=TOLERANCIA):
+    """Ángulo que entrega exactamente la fracción ``u`` con el método elegido."""
+    if metodo == "newton":
+        return angulo_por_newton(u, tol)
+    if metodo == "biseccion":
+        return angulo_por_biseccion(u, tol)
+    raise ValueError(f"método de inversión desconocido: {metodo!r}")
+
+
+def disparo_real(alfa, alfa_min, alfa_max, resolucion=0.0, dispersion=0.0, rng=None):
+    """Lo que hace un circuito de disparo real con el ángulo pedido.
+
+    - Sin disparo (α ≥ 180°) el triac queda apagado.
+    - El ángulo queda entre los límites físicos [alfa_min, alfa_max]: muy
+      cerca de 0° o de 180° no hay voltaje suficiente para disparar.
+    - ``dispersion`` (grados, desviación típica): el disparo no es exacto.
+    - ``resolucion`` (grados): el temporizador solo da ángulos múltiplos de ella.
+    """
+    if alfa >= ALFA_APAGADO:
+        return ALFA_APAGADO
+    alfa = min(max(alfa, alfa_min), alfa_max)
+    if dispersion > 0.0 and rng is not None:
+        alfa += rng.gauss(0.0, dispersion)
+    if resolucion > 0.0:
+        alfa = round(alfa / resolucion) * resolucion
+    return min(max(alfa, alfa_min), alfa_max)
+
+
+# ======================================================================
+# El actuador completo
+# ======================================================================
+class Triac:
+    """Convierte la señal de control u en la fracción de potencia que llega al horno.
+
+    ``parametros`` es un ``ParametrosActuador`` (se lee en cada paso).
+    ``aplicar`` devuelve ``(fracción, α, iteraciones)``; en modo ideal la
+    fracción es exactamente u (los resultados no cambian) y α es NaN.
+    """
+
+    def __init__(self, parametros):
+        self.parametros = parametros
+
+    def aplicar(self, u, rng=None):
+        p = self.parametros
+        if p.modo == "ideal":
+            return u, math.nan, 0
+        if u <= 0.0:
+            return 0.0, ALFA_APAGADO, 0
+        if p.modo == "triac_lineal":
+            alfa, iteraciones = angulo_lineal(u), 0
+        elif p.modo == "triac_compensado":
+            alfa, iteraciones = angulo_compensado(u, p.metodo)
+        else:
+            raise ValueError(f"modo de actuador desconocido: {p.modo!r}")
+        alfa = disparo_real(alfa, p.alfa_min, p.alfa_max, p.resolucion, p.dispersion, rng)
+        return fraccion_potencia(alfa), alfa, iteraciones
+
+
+def energia_kwh(joules):
+    return joules / 3.6e6

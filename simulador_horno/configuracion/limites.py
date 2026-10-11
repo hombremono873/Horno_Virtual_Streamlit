@@ -77,6 +77,6 @@ AMBIENTE_PERIODO = 3600        # s
 TEMP_MIN_COLOR = 30
 TEMP_MAX_COLOR = 1200
 
-# --- Actuador: ángulo de conducción (modelo.actuador) -------------
+# --- Triac: límites físicos del ángulo de disparo (modelo.triac) ---
 THETA_MIN = 10.0
 THETA_MAX = 170.0

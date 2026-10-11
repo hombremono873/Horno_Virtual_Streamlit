@@ -2,5 +2,5 @@
 
 - ``horno``          : ecuación térmica del horno y paso de Euler (``simular_horno``).
 - ``perturbaciones`` : ruido, impulsos, puerta, red y ambiente; ``Perturbador`` con semilla.
-- ``actuador``       : traducción de la señal de control a ángulo de conducción.
+- ``triac``          : el actuador: ángulo de disparo, potencia eléctrica e inversión numérica.
 """
