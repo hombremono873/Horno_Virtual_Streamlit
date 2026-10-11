@@ -41,7 +41,7 @@ Esta es la **versión web**, pensada para usarse desde el navegador sin instalar
 | **Horno** | T ambiente, setpoint, T máx. de equilibrio, **T inicial** (arranque en frío o en caliente) y τ. Muestra **B** calculado |
 | **Controlador PID** | Kp, Ki, Kd, anti-windup (ninguno, recorte, **integración condicional**) y el factor de recorte |
 | **Perturbaciones** | 3 sobre la **medición** y 3 sobre el **horno real** (ver [Modelo y control](#modelo-y-control)) y los impulsos por hora |
-| **Control y actuador (triac)** | **Automático** (el PID decide, con un **límite de potencia**) o **Manual** (tú fijas la potencia en % o el ángulo de disparo α); tipo de actuador (ideal, triac lineal, triac compensado), método para invertir la curva, red (220/120 V), potencia nominal, resolución y dispersión del disparo |
+| **Control y actuador (triac)** | **Automático** (el PID decide, con un **límite de potencia**) o **Manual** (tú fijas la potencia en % o el ángulo de disparo α); tipo de actuador (ideal, triac lineal, triac compensado), método para invertir la curva, red (220/110 V), potencia nominal, resolución y dispersión del disparo |
 | **Simulación** | Duración (30 min a 8 h; *sin límite* solo en vivo), velocidad (en vivo), método numérico, Δt y **semilla** |
 
 **En vivo** se pueden cambiar el setpoint, las ganancias y las perturbaciones a mitad de la corrida y ver cómo reacciona el controlador. El método numérico, la T inicial y la duración se aplican al **reiniciar**. Cuando ocurre un impulso en la medición aparece un aviso ⚡.
