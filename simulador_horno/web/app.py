@@ -310,11 +310,17 @@ def _actuador(ss):
     monitor.grafica(graficas.figura_actuador(ss.sim), key="grafica_triac")
 
 
+def _mostrar_todos_los_canales():
+    st.session_state.osc_revision = st.session_state.get("osc_revision", 0) + 1
+
+
 def _controles_osciloscopio():
     c1, c2 = st.columns((1, 2))
     fuente = c1.radio("Ángulo que se muestra", FUENTES_OSCILOSCOPIO, key="w_osc_fuente",
                       help="En vivo: el ángulo con que el triac está disparando en la simulación. "
                            "Explorar: mueve tú el ángulo de disparo.")
+    c1.button("Mostrar todos los canales", key="b_osc_canales", on_click=_mostrar_todos_los_canales,
+              help="Vuelve a encender los canales apagados desde la leyenda y quita el zoom.")
     c2.slider("Ángulo de disparo para explorar (°)", 0.0, 180.0, 64.65, 0.05, key="w_osc_alfa",
               disabled=fuente != FUENTES_OSCILOSCOPIO[1],
               help="Por debajo del mínimo el triac conduce el ciclo completo; por encima del máximo no conduce.")
@@ -352,7 +358,9 @@ def _osciloscopio(ss):
               f"V eficaz en la carga {m['V_rms_carga']:.1f} V",
               f"I eficaz {m['I_rms']:.2f} A",
               f"P media integrando la onda <b>{m['P_media']:,.1f} W</b> · fórmula {formula:,.1f} W"]
-    monitor.grafica(graficas.figura_osciloscopio(ondas, alfa, act.frecuencia), key="osciloscopio", estado=estado)
+    figura = graficas.figura_osciloscopio(ondas, alfa, act.frecuencia,
+                                          revision=st.session_state.get("osc_revision", 0))
+    monitor.grafica(figura, key="osciloscopio", estado=estado)
 
 
 def _explicacion_osciloscopio():
@@ -363,8 +371,9 @@ def _explicacion_osciloscopio():
         "(CH2) aparece **recortada**. La corriente (CH3) tiene la misma forma porque la carga es una resistencia, "
         "y la potencia instantánea (CH4) es voltaje × corriente: siempre positiva. Mientras el triac no conduce, "
         "todo el voltaje de la red queda sobre él (línea gris).\n\n"
-        "Pasa el mouse sobre la pantalla para leer todos los canales en ese instante; haz clic en un canal de la "
-        "leyenda para apagarlo o encenderlo. La **potencia media** se calcula integrando la onda (regla del "
+        "Pasa el mouse sobre la pantalla para leer todos los canales en ese instante. **Un clic** en un canal de la "
+        "leyenda lo apaga o lo enciende (apagado se ve en gris y queda así aunque la gráfica se actualice); **doble "
+        "clic** muestra solo ese canal. El botón **Mostrar todos los canales** los vuelve a encender. La **potencia media** se calcula integrando la onda (regla del "
         "trapecio) y coincide con la fórmula del triac."
     )
 

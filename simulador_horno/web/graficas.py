@@ -262,12 +262,14 @@ _CANALES = (   # (clave, nombre, color, panel, formato del valor)
 )
 
 
-def figura_osciloscopio(ondas, alfa, frecuencia, ciclos=2):
+def figura_osciloscopio(ondas, alfa, frecuencia, ciclos=2, revision=0):
     """Pantalla de osciloscopio: cuatro paneles con el MISMO eje de tiempo.
 
     Al pasar el mouse, un solo recuadro muestra todos los canales en ese
     instante (``hoversubplots="axis"``) y el ángulo eléctrico. Hacer clic en
-    un canal de la leyenda lo apaga o enciende, como en un osciloscopio.
+    un canal de la leyenda lo apaga o enciende, como en un osciloscopio; el
+    navegador recuerda esos cambios mientras ``revision`` no cambie (subirla
+    vuelve a mostrar todos los canales y quita el zoom).
     """
     t = [round(x, 4) for x in ondas["t_ms"]]
     fig = go.Figure()
@@ -309,6 +311,6 @@ def figura_osciloscopio(ondas, alfa, frecuencia, ciclos=2):
                     rangemode="tozero", **eje),
         yaxis4=dict(domain=(0.0, 0.13), title=dict(text="Compuerta (V)"), range=[-0.5, 6.5], dtick=5, **eje),
         yaxis5=dict(domain=(0.0, 1.0), visible=False, range=[0, 360], overlaying="y"),
-        uirevision="osciloscopio",
+        uirevision=f"osciloscopio-{revision}",
     )
     return fig
