@@ -58,7 +58,7 @@ def _aplicar_widgets(sim):
     c = sim.config
     for campo in ("T_AMB", "T_SET", "T_MAX_EQ", "T_INICIAL", "TAU", "DT"):
         setattr(c.horno, campo, float(ss[f"w_{campo}"]))
-    for campo in ("KP", "KI", "KD", "anti_windup", "restringir_integral"):
+    for campo in ("KP", "KI", "KD", "anti_windup", "restringir_integral", "filtro_derivada"):
         setattr(c.pid, campo, ss[f"w_{campo}"])
     for atributo, _, _ in limites.PERTURBACIONES:
         setattr(c.perturbaciones, atributo, bool(ss[f"w_{atributo}"]))
@@ -217,7 +217,11 @@ def _barra_lateral(ss):
             p = DEFECTO.pid
             st.number_input("Kp", 0.0, 10000.0, float(p.KP), 10.0, key="w_KP")
             st.number_input("Ki", 0.0, 1000.0, float(p.KI), 1.0, key="w_KI")
-            st.number_input("Kd", 0.0, 1000.0, float(p.KD), 1.0, key="w_KD")
+            st.number_input("Kd", 0.0, 50000.0, float(p.KD), 100.0, key="w_KD",
+                            help="Con la escala 1/20000: Kd = 2000 aporta 1 % de potencia por cada 0,1 °C/s de subida.")
+            st.number_input("Filtro de la derivada (s)", 0.0, 120.0, float(p.filtro_derivada), 1.0,
+                            key="w_filtro_derivada",
+                            help="Suaviza la derivada: sin filtro, el ruido del termopar se amplifica y la potencia salta. 0 = sin filtro.")
             st.selectbox("Anti-windup", list(NOMBRES_ANTI_WINDUP), format_func=NOMBRES_ANTI_WINDUP.get,
                          index=list(NOMBRES_ANTI_WINDUP).index(p.anti_windup), key="w_anti_windup")
             st.slider("Factor de recorte de la integral", 0.0, 1.0, p.restringir_integral, 0.05,

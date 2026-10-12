@@ -117,10 +117,11 @@ Para IAE e ISE, **menor es mejor**, y solo son comparables entre corridas de la 
 - **Modelo térmico:** sistema de **primer orden**, con pérdidas al ambiente según la **Ley de Enfriamiento de Newton** más la potencia del calentador:
   `dT/dt = (T_AMB − T)/τ + B·u`, con `u ∈ [0, 1]` (un horno no enfría activamente).
   La ganancia `B = (T_MAX_EQ − T_AMB)/τ` se deriva de la temperatura de equilibrio a potencia plena (1300 °C por defecto), lo que da un calentamiento máximo realista de ~0,42 °C/s.
-- **PID** (por defecto Kp = 200, Ki = 10, Kd = 2):
+- **PID** (por defecto Kp = 200, Ki = 10, Kd = 2000, filtro de la derivada 10 s):
   - **Proporcional:** responde al error instantáneo.
   - **Integral:** corrige el error acumulado (regla del trapecio), protegida por el **anti-windup** (por defecto, **integración condicional**).
-  - **Derivativa:** se calcula sobre la **temperatura medida**, para evitar picos cuando el error salta.
+  - **Derivativa:** se calcula sobre la **temperatura medida**, para evitar picos cuando el error salta, y pasa por un **filtro** que la suaviza: sin él, el ruido del termopar (±1 °C cada 0,1 s) parece una velocidad de ±10 °C/s y la potencia salta (oscila un 38 %; con el filtro, un 2 %). Con Kd = 2000 la derivada frena la llegada al setpoint con un aporte de hasta 2,3 % de la potencia.
+  - **Ojo en el arranque:** con el horno frío el error es de 970 °C y el término P pide 970 % de la potencia; la salida queda en 100 % durante ~58 min aunque el PID calcula en cada paso. Así se comporta cualquier PID ante un salto grande; los hornos reales usan rampas de setpoint (pendiente en el simulador).
 - **Fallos y perturbaciones**, todas apagadas por defecto:
 
   | Sobre la **medición** (el controlador lee mal) | Sobre el **horno real** (cambia la física) |

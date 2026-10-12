@@ -36,12 +36,14 @@ class ParametrosHorno:
 class ParametrosPID:
     KP: float = 200   # ganancia proporcional
     KI: float = 10    # ganancia integral
-    KD: float = 2     # ganancia derivativa
+    KD: float = 2000  # ganancia derivativa (antes 2: su aporte era invisible, 0,004 %)
     # "ninguno" | "recorte" | "condicional"   (ver control.anti_windup)
     anti_windup: str = "condicional"
     # factor [0, 1] del modo "recorte": escala la integral cuando supera
     # limites.UMBRAL_INTEGRAL
     restringir_integral: float = 0.85
+    # constante del filtro de la derivada (s): suaviza el ruido del sensor; 0 = sin filtro
+    filtro_derivada: float = 10.0
     # "automatico": el PID decide u (sin pasar de limite_potencia);
     # "manual": u = potencia_manual, fijada por el usuario (lazo abierto)
     modo_control: str = "automatico"

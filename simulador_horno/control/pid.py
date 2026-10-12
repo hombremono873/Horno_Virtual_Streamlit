@@ -12,8 +12,24 @@ from simulador_horno.control import anti_windup as windout
 from simulador_horno.control.escalado import escalar_u
 
 
-def calcular_pid(error, error_prev, integral, medida, medida_prev, pid, dt, cortada=False):
-    """Devuelve ``(u, integral, error, termino_D, termino_P)``.
+def derivada_de_la_medicion(medida, medida_prev, derivada_prev, filtro, dt):
+    """Velocidad de cambio de la medición, con filtro opcional (pasa-bajos de primer orden).
+
+    cruda = −(medida − medida_prev) / dt      (0 si no hay medida previa)
+    filtrada = anterior + dt / (filtro + dt) × (cruda − anterior)
+
+    La derivada AMPLIFICA el ruido del sensor: ±1 °C de ruido en lecturas
+    cada 0,1 s parecen ±10 °C/s. El filtro (constante ``filtro`` en s) la
+    suaviza; con ``filtro = 0`` no se filtra.
+    """
+    cruda = 0.0 if medida_prev is None else -(medida - medida_prev) / dt
+    if filtro <= 0 or medida_prev is None:
+        return cruda
+    return derivada_prev + dt / (filtro + dt) * (cruda - derivada_prev)
+
+
+def calcular_pid(error, error_prev, integral, medida, medida_prev, pid, dt, cortada=False, derivada_prev=0.0):
+    """Devuelve ``(u, integral, error, termino_D, termino_P, derivada)``.
 
     ``pid`` son las ganancias y el anti-windup (``ParametrosPID``); ``dt``
     el paso de integración en segundos.
@@ -24,6 +40,8 @@ def calcular_pid(error, error_prev, integral, medida, medida_prev, pid, dt, cort
       ``−(medida − medida_prev)/dt``. Con el setpoint fijo es lo mismo, pero
       evita el pico de la acción D ("derivative kick") cuando el error salta,
       como en el primer paso. Si no hay medida previa (``None``) vale 0.
+      Filtrada con ``pid.filtro_derivada`` (ver :func:`derivada_de_la_medicion`);
+      ``derivada_prev`` es la derivada filtrada del paso anterior.
     - salida ``u`` saturada por :func:`escalar_u` a [0, límite de potencia].
     - ``cortada``: el interruptor del horno está apagado y la salida no llega.
       Con anti-windup (recorte o condicional) la integral se congela; sin
@@ -34,7 +52,7 @@ def calcular_pid(error, error_prev, integral, medida, medida_prev, pid, dt, cort
         DT = 1e-6   # protección mínima
 
     integral_nueva = integral + 0.5 * (error + error_prev) * DT   # regla del trapecio
-    derivada = 0.0 if medida_prev is None else -(medida - medida_prev) / DT
+    derivada = derivada_de_la_medicion(medida, medida_prev, derivada_prev, pid.filtro_derivada, DT)
     proporcional = pid.KP * error
 
     u_bruta = (proporcional + pid.KI * integral_nueva + pid.KD * derivada) / limites.U_MAX
@@ -49,7 +67,7 @@ def calcular_pid(error, error_prev, integral, medida, medida_prev, pid, dt, cort
     if math.isnan(u) or math.isinf(u):
         u = 0.0
 
-    return escalar_u(u, limites.U_MAX, tope), integral, error, pid.KD * derivada, proporcional
+    return escalar_u(u, limites.U_MAX, tope), integral, error, pid.KD * derivada, proporcional, derivada
 
 
 class PID:
@@ -69,6 +87,7 @@ class PID:
         self.medida_prev = None   # temperatura medida en el paso anterior (derivada sobre la medición)
         self.integral = 0.0
         self.derivada = 0.0       # término derivativo ya multiplicado por KD
+        self.velocidad = 0.0      # derivada (filtrada) de la medición, °C/s
         self.proporcional = 0.0   # término proporcional
 
     def paso(self, error, medida, dt, cortada=False):
@@ -77,8 +96,9 @@ class PID:
         ``medida`` es la temperatura que "lee" el controlador (T_SET − error,
         es decir, incluye las perturbaciones activas).
         """
-        u, self.integral, self.error_prev, self.derivada, self.proporcional = calcular_pid(
-            error, self.error_prev, self.integral, medida, self.medida_prev, self.parametros, dt, cortada
+        u, self.integral, self.error_prev, self.derivada, self.proporcional, self.velocidad = calcular_pid(
+            error, self.error_prev, self.integral, medida, self.medida_prev, self.parametros, dt, cortada,
+            self.velocidad,
         )
         self.medida_prev = medida
         return u
@@ -92,7 +112,8 @@ class PID:
         """
         p = self.parametros
         DT = dt if dt != 0 else 1e-6
-        self.derivada = 0.0 if self.medida_prev is None else -p.KD * (medida - self.medida_prev) / DT
+        self.velocidad = derivada_de_la_medicion(medida, self.medida_prev, self.velocidad, p.filtro_derivada, DT)
+        self.derivada = p.KD * self.velocidad
         self.proporcional = p.KP * error
         if p.KI:
             self.integral = (u * limites.U_MAX - self.proporcional - self.derivada) / p.KI

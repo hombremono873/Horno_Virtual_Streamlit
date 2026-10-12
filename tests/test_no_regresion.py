@@ -30,7 +30,7 @@ from pathlib import Path
 import pytest
 
 from simulador_horno.configuracion import limites
-from simulador_horno.configuracion.parametros import Configuracion
+from simulador_horno.configuracion.parametros import Configuracion, ParametrosPID
 from simulador_horno.simulacion.simulador import Simulador
 
 CARPETA = Path(__file__).parent / "referencias"
@@ -54,7 +54,8 @@ ESCENARIOS = {
 
 def correr(horas, semilla, cambios):
     """Ejecuta un escenario y devuelve el simulador al terminar."""
-    config = Configuracion()
+    # valores del código original: las referencias se generaron con Kd = 2 y sin filtro
+    config = Configuracion(pid=ParametrosPID(KD=2, filtro_derivada=0.0))
     partes = (config.simulacion, config.pid, config.perturbaciones, config.horno)
     for clave, valor in cambios.items():
         for parte in partes:

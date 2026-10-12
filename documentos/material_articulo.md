@@ -116,7 +116,7 @@ u sin recortar = (P + I + D) / 20000
 u = recortar entre 0 y 1   (o entre 0 y el límite de potencia, si hay límite)
 ```
 
-Valores por defecto: Kp = 200, Ki = 10, Kd = 2.
+Valores por defecto: Kp = 200, Ki = 10, Kd = 2 (desde el 2026-10-12: Kd = 2000 con filtro de 10 s, ver más abajo).
 
 **Ejemplo en régimen:** error 2 °C, integral 1450, derivada −0,1:
 ```
@@ -132,6 +132,27 @@ En régimen casi toda la potencia la pone **I**.
 **Derivada sobre la medición (corrección histórica):** antes se derivaba el error, y en el primer paso D = Kd × 970 / 0,1 = **19 400**: un pico enorme, el llamado "derivative kick". Ahora se deriva la medida y vale 0 en el primer paso. Con el setpoint fijo es equivalente, pero no produce picos al arrancar ni al cambiar el setpoint.
 
 **Detalle conocido:** en el primer paso, el trapecio usa error anterior = 0. El efecto es despreciable.
+
+### La acción derivativa y su filtro (corrección del 2026-10-12)
+**Observación del autor:** en el arranque no se veía regulación ni acción derivativa. Hay dos causas distintas:
+1. **Saturación en el arranque:** el PID sí calcula desde el primer paso, pero P = 200 × 970 / 20000 = 9,7 (970 %), así que u queda en 100 % durante ~58 min, hasta entrar en la banda proporcional de 100 °C. En el osciloscopio no se veían pulsos porque a plena potencia la compuerta queda activa todo el ciclo. Así responde cualquier PID a un salto de 970 °C; la solución real son las **rampas de setpoint** (programa de calcinación, pendiente).
+2. **Kd = 2 era simbólico:** aporte D = Kd × velocidad / 20000 = 2 × 0,42 / 20000 = 0,004 % de la potencia. Invisible.
+
+**El problema de subir Kd: la derivada amplifica el ruido.** Con el ruido del termopar (±1 °C por lectura cada 0,1 s) la "velocidad" medida salta ±10 °C/s. Solución: **filtro pasa-bajos de primer orden** sobre la derivada:
+```
+derivada cruda    = −(medida actual − medida anterior) / Δt
+derivada filtrada = anterior + Δt / (filtro + Δt) × (cruda − anterior)
+```
+Medido (2 h; ruido: desviación de u en régimen y aporte máximo de D):
+```
+ Kd    filtro   sobrepaso   t90       D máx sin ruido   oscilación de u con ruido   D máx con ruido
+    2    0 s     0,54 %    58,2 min      0,00 %                1,1 %                    0,7 %
+ 1000    0 s     0,55 %    58,2 min      1,16 %               33,7 %                  336 %
+ 2000    0 s     0,56 %    58,2 min      2,32 %               38,2 %                  672 %
+ 2000   10 s     0,55 %    58,2 min      2,33 %                2,0 %                    6,3 %   ← nuevo valor por defecto
+ 5000   10 s     0,57 %    58,2 min      5,83 %                3,5 %                   15,8 %
+```
+**Lección para el artículo:** en este horno (primer orden, sin retardo) la derivada **casi no cambia el sobrepaso** (0,54 % → 0,55 %); incluso lo sube un poco, porque al restar potencia durante la subida el anti-windup condicional deja integrar antes. El sobrepaso viene de la integral. La derivada es decisiva en plantas con **retardo** (termopar lento, opción B) o al seguir **rampas**. Nuevos valores por defecto: **Kd = 2000, filtro 10 s**; sobrepaso por defecto 0,55 % (antes 0,54 %). Las corridas de no regresión conservan Kd = 2 sin filtro, para seguir comparando con el código original.
 
 ### El divisor 20000 (U_MAX)
 
@@ -369,4 +390,5 @@ En la web, los pasos se calculan con el tiempo **real** transcurrido entre refre
 ## Registro de cambios de este documento
 - 2026-10-11: creación con todo lo tratado hasta la implementación del triac, el control manual, el límite de potencia y el comportamiento en los extremos del ángulo.
 - 2026-10-12: secciones 7.9 (interruptor de potencia y windup al reencender) y 7.10 (animación del horno).
+- 2026-10-12: sección 4, la acción derivativa y su filtro (saturación del arranque, Kd simbólico, tabla Kd × filtro, nuevos valores por defecto).
 - 2026-10-12: sección 7.8, el osciloscopio (canales, pulso de compuerta, lectura con el mouse, potencia integrada contra la fórmula y anécdotas de redondeo).

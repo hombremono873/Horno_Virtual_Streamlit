@@ -117,7 +117,7 @@ def test_indicadores_sin_menos_cero():
     sim = Simulador()
     sim.completar()
     valores = dict(ind.indicadores(sim, True, sim.metricas()))
-    assert valores["Tiempo simulado"] == "2:00:00" and valores["Sobrepaso"] == "0.54 %"
+    assert valores["Tiempo simulado"] == "2:00:00" and valores["Sobrepaso"] == "0.55 %"
     assert valores["Tiempo al 90 %"] == "58.2 min" and valores["Factor activo"] == "x60"
     assert "Corrida terminada" in ind.estado(sim, False)[0]
 

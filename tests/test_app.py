@@ -68,7 +68,7 @@ def test_corrida_completa_produce_figura_y_metricas():
     at = simular(abrir())
     m = valores(at)
     assert m["Tiempo simulado"] == "2:00:00"
-    assert m["Sobrepaso"] == "0.54 %" and m["Tiempo al 90 %"] == "58.2 min"
+    assert m["Sobrepaso"] == "0.55 %" and m["Tiempo al 90 %"] == "58.2 min"
     assert at.table, "falta la tabla de desempeño"
     assert "Corrida terminada" in ind.estado(at.session_state.sim, at.session_state.en_vivo)[0]
 
@@ -145,7 +145,7 @@ def test_dos_sesiones_no_se_afectan():
     sa, sb = a.session_state.sim, b.session_state.sim
     assert sa is not sb and sa.config is not sb.config
     assert sb.config.horno.T_SET == 1000.0 and sb.config.pid.KP == 200
-    assert valores(b)["Sobrepaso"] == "0.54 %"
+    assert valores(b)["Sobrepaso"] == "0.55 %"
     assert sa.historial.setpoints[-1] == 700.0
 
 
