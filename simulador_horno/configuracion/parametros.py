@@ -70,6 +70,9 @@ class Perturbaciones:
 @dataclass
 class ParametrosActuador:
     """El triac que gobierna la potencia (ver ``modelo.triac``)."""
+    # interruptor de potencia: apagado corta la energía a la resistencia, pero el
+    # control (termopar, PID, disparo del triac) sigue funcionando
+    encendido: bool = True
     modo: str = "ideal"               # ideal | triac_lineal | triac_compensado
     metodo: str = "newton"            # inversión de la curva: newton | biseccion
     V_red: float = 220.0              # voltaje eficaz de la red (V)

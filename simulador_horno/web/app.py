@@ -72,6 +72,7 @@ def _aplicar_widgets(sim):
     c.pid.limite_potencia = ss.get("w_limite", 100) / 100
     c.pid.potencia_manual = _potencia_manual(ss)
     a = c.actuador
+    a.encendido = bool(ss.get("w_encendido", True))
     a.modo = ss.get("w_actuador", DEFECTO.actuador.modo)
     a.metodo = ss.get("w_metodo_inversion", DEFECTO.actuador.metodo)
     a.V_red = float(ss.get("w_V_red", DEFECTO.actuador.V_red))
@@ -196,6 +197,9 @@ def _barra_lateral(ss):
                     f"Autor: **{creditos.AUTOR}** · Docente: **{creditos.DOCENTE}**")
         modo = st.segmented_control("Modo", MODOS, default=MODOS[1], required=True,
                                     key="w_modo", on_change=_cambio_de_modo, width="stretch")
+        st.toggle("⏻ Horno encendido (interruptor de potencia)", True, key="w_encendido",
+                  help="Apagado corta la energía a la resistencia. El control sigue midiendo y calculando "
+                       "(como en un horno real): el termopar, el PID y los pulsos del triac continúan.")
 
         with st.expander("Horno", expanded=True):
             h = DEFECTO.horno
@@ -329,15 +333,17 @@ def _angulo_osciloscopio(ss):
 def _osciloscopio(ss):
     act = ss.sim.config.actuador
     alfa, aviso = _angulo_osciloscopio(ss)
-    ondas = triac.formas_de_onda(alfa, act.V_red, act.R, act.frecuencia, resolucion=0.5)
+    ondas = triac.formas_de_onda(alfa, act.V_red, act.R, act.frecuencia, resolucion=0.5, encendido=act.encendido)
     m = triac.medidas(ondas)
-    formula = triac.potencia_electrica(alfa, act.V_red, act.R)
+    formula = triac.potencia_electrica(alfa, act.V_red, act.R) if act.encendido else 0.0
     if alfa <= 0:
         disparo = "compuerta activa todo el ciclo: conducción completa"
     elif alfa >= triac.ALFA_APAGADO:
         disparo = "sin disparo: el triac no conduce"
     else:
         disparo = f"disparo α = <b>{alfa:.2f}°</b>, a {triac.tiempo_disparo_ms(alfa, act.frecuencia):.3f} ms del cruce por cero"
+    if not act.encendido:
+        aviso = '<b class="alerta">⏻ HORNO APAGADO: hay red y pulsos, pero no llega energía</b> · ' + aviso
     estado = [aviso, disparo,
               f"V eficaz en la carga {m['V_rms_carga']:.1f} V",
               f"I eficaz {m['I_rms']:.2f} A",

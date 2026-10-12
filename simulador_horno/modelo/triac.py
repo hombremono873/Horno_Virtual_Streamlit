@@ -242,7 +242,8 @@ def _compuerta(fase, alfa, ancho):
     return V_COMPUERTA if alfa - _EPS_FASE <= fase < alfa + ancho else 0.0
 
 
-def formas_de_onda(alfa, V_red, R, frecuencia=60.0, ciclos=2, resolucion=0.25, ancho_pulso=ANCHO_PULSO):
+def formas_de_onda(alfa, V_red, R, frecuencia=60.0, ciclos=2, resolucion=0.25, ancho_pulso=ANCHO_PULSO,
+                   encendido=True):
     """Señales de un osciloscopio sobre la carga resistiva del horno.
 
     Para ``ciclos`` ciclos de la red, muestreados cada ``resolucion`` grados
@@ -257,6 +258,10 @@ def formas_de_onda(alfa, V_red, R, frecuencia=60.0, ciclos=2, resolucion=0.25, a
     - ``potencia``              : v_carga · corriente (siempre ≥ 0);
     - ``v_triac``               : v_red − v_carga (lo que aguanta el triac apagado);
     - ``compuerta``             : el pulso de disparo en cada medio ciclo.
+
+    Con ``encendido=False`` el interruptor (antes del triac) está abierto: la
+    red sigue presente y el control sigue enviando pulsos, pero ni el triac
+    ni la resistencia reciben voltaje.
     """
     V_pico = V_red * math.sqrt(2.0)
     total = 360.0 * ciclos
@@ -272,7 +277,7 @@ def formas_de_onda(alfa, V_red, R, frecuencia=60.0, ciclos=2, resolucion=0.25, a
         if a == total:
             fase = 180.0            # el último punto cierra el medio ciclo (cruce por cero)
         v = V_pico * math.sin(math.radians(a))
-        vc = v if _conduce(fase, alfa) else 0.0
+        vc = v if (encendido and _conduce(fase, alfa)) else 0.0
         i = vc / R
         ondas["t_ms"].append(a / 360.0 / frecuencia * 1000.0)
         ondas["angulo"].append(a)
@@ -280,7 +285,7 @@ def formas_de_onda(alfa, V_red, R, frecuencia=60.0, ciclos=2, resolucion=0.25, a
         ondas["v_carga"].append(vc)
         ondas["corriente"].append(i)
         ondas["potencia"].append(vc * i)
-        ondas["v_triac"].append(v - vc)
+        ondas["v_triac"].append(v - vc if encendido else 0.0)
         ondas["compuerta"].append(_compuerta(fase, alfa, ancho_pulso))
     return ondas
 

@@ -12,7 +12,7 @@ from simulador_horno.control import anti_windup as windout
 from simulador_horno.control.escalado import escalar_u
 
 
-def calcular_pid(error, error_prev, integral, medida, medida_prev, pid, dt):
+def calcular_pid(error, error_prev, integral, medida, medida_prev, pid, dt, cortada=False):
     """Devuelve ``(u, integral, error, termino_D, termino_P)``.
 
     ``pid`` son las ganancias y el anti-windup (``ParametrosPID``); ``dt``
@@ -25,6 +25,9 @@ def calcular_pid(error, error_prev, integral, medida, medida_prev, pid, dt):
       evita el pico de la acción D ("derivative kick") cuando el error salta,
       como en el primer paso. Si no hay medida previa (``None``) vale 0.
     - salida ``u`` saturada por :func:`escalar_u` a [0, límite de potencia].
+    - ``cortada``: el interruptor del horno está apagado y la salida no llega.
+      Con anti-windup (recorte o condicional) la integral se congela; sin
+      anti-windup sigue acumulando (windup, y sobrepaso al volver a encender).
     """
     DT = dt
     if DT == 0:
@@ -36,8 +39,11 @@ def calcular_pid(error, error_prev, integral, medida, medida_prev, pid, dt):
 
     u_bruta = (proporcional + pid.KI * integral_nueva + pid.KD * derivada) / limites.U_MAX
     tope = pid.limite_potencia
-    integral = windout.limitar(pid.anti_windup, integral, integral_nueva, error, u_bruta,
-                               pid.restringir_integral, tope)
+    if cortada and pid.anti_windup != "ninguno":
+        pass                                   # salida cortada: la integral se congela
+    else:
+        integral = windout.limitar(pid.anti_windup, integral, integral_nueva, error, u_bruta,
+                                   pid.restringir_integral, tope)
 
     u = proporcional + pid.KI * integral + pid.KD * derivada
     if math.isnan(u) or math.isinf(u):
@@ -65,14 +71,14 @@ class PID:
         self.derivada = 0.0       # término derivativo ya multiplicado por KD
         self.proporcional = 0.0   # término proporcional
 
-    def paso(self, error, medida, dt):
+    def paso(self, error, medida, dt, cortada=False):
         """Ejecuta un paso y devuelve ``u`` en [0, 1].
 
         ``medida`` es la temperatura que "lee" el controlador (T_SET − error,
         es decir, incluye las perturbaciones activas).
         """
         u, self.integral, self.error_prev, self.derivada, self.proporcional = calcular_pid(
-            error, self.error_prev, self.integral, medida, self.medida_prev, self.parametros, dt
+            error, self.error_prev, self.integral, medida, self.medida_prev, self.parametros, dt, cortada
         )
         self.medida_prev = medida
         return u

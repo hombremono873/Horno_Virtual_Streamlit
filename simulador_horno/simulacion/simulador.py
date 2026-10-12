@@ -81,7 +81,7 @@ class Simulador:
             u = min(max(pid.parametros.potencia_manual, 0.0), 1.0)
             pid.seguir(u, error, medida, horno.DT)
         else:
-            u = pid.paso(error, medida, horno.DT)
+            u = pid.paso(error, medida, horno.DT, cortada=not self.config.actuador.encendido)
         # las perturbaciones del horno solo rigen durante este paso
         entorno, apertura = self.perturbador.entorno(self.t, horno.DT, horno.T_AMB, perturbaciones)
         self.aperturas += apertura
@@ -89,6 +89,8 @@ class Simulador:
         # (en modo ideal es la misma u). Su dispersión usa el generador
         # DESPUÉS de las perturbaciones: el orden de las corridas no cambia.
         fraccion, alfa, iteraciones = self.triac.aplicar(u, self.perturbador.rng)
+        if not self.config.actuador.encendido:
+            fraccion = 0.0      # interruptor apagado: el triac dispara pero no llega energía
         potencia_w = fraccion * self.config.actuador.potencia_nominal * entorno[2]   # entorno[2] = (V/Vn)²
         # se registra ANTES de integrar: cada muestra es coherente en el
         # instante t (T(t), el error visto en t y la u decidida en t)
@@ -171,6 +173,7 @@ class Simulador:
             "modo_control": pid.modo_control,
             "limite_potencia": pid.limite_potencia,
             "potencia_manual": pid.potencia_manual if pid.modo_control == "manual" else None,
+            "encendido": "si" if self.config.actuador.encendido else "no",
             "actuador": self.config.actuador.modo,
             "metodo_inversion": self.config.actuador.metodo,
             "V_red": self.config.actuador.V_red,

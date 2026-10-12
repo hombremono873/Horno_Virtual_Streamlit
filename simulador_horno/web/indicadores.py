@@ -74,6 +74,7 @@ def control(pid):
 def _actuador(sim):
     act = sim.config.actuador
     filas = [
+        ("Interruptor", "Encendido" if act.encendido else "APAGADO"),
         ("Control", control(sim.config.pid)),
         ("Actuador", MODOS_ACTUADOR[act.modo]),
         ("Potencia pedida (u)", f"{sim.u * 100:.1f} %"),
@@ -111,6 +112,8 @@ def estado(sim, en_vivo):
         avisos.append("⏸ En pausa")
     else:
         avisos.append("Pulsa <b>▶ Iniciar</b> (en vivo) o <b>▶ Simular</b> (corrida completa) en la barra lateral.")
+    if not sim.config.actuador.encendido:
+        avisos.append('<b class="alerta">⏻ HORNO APAGADO</b>')
     pid = sim.config.pid
     if pid.modo_control == "manual" or pid.limite_potencia < 1.0:
         avisos.append(f'<b class="alerta">{escape(control(pid)).upper()}</b>')
