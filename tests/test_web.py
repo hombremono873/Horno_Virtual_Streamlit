@@ -251,3 +251,27 @@ def test_tablero_agrupado():
     assert dict(grupos["Horno (inercia térmica)"])["Capacidad térmica C = P/B"] == "7,087 J/°C"
     assert dict(grupos["Proceso"])["Temperatura"] == "1000.0 °C"
     assert dict(grupos["Ejecución"])["Método"] == "Euler"
+
+
+# ---- animación del horno ------------------------------------------------
+def test_color_de_incandescencia():
+    from simulador_horno.web.animacion import color_incandescencia
+    oscuro, rojo, naranja = color_incandescencia(30), color_incandescencia(750), color_incandescencia(1050)
+    assert oscuro == color_incandescencia(450)                 # por debajo de ~450 °C no brilla
+    assert (rojo, naranja) == ("#a8220c", "#f7962b")
+    def brillo(c):
+        return sum(int(c[i:i + 2], 16) for i in (1, 3, 5))
+    escala = [brillo(color_incandescencia(T)) for T in range(400, 1400, 25)]
+    assert escala == sorted(escala)                             # más caliente, más brillante
+
+
+def test_datos_de_la_animacion():
+    from simulador_horno.web.animacion import datos_horno
+    sim = Simulador()
+    sim.avanzar(100)
+    d = datos_horno(sim)
+    assert d["conduce"] and d["encendido"] and d["out"] == 100.0 and d["sv"] == "1000"
+    sim.config.actuador.encendido = False
+    sim.avanzar(10)
+    d = datos_horno(sim)
+    assert not d["conduce"] and d["entregada"] == 0.0 and d["out"] == 100.0   # pide, pero no llega

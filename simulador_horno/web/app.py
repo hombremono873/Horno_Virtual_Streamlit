@@ -25,7 +25,7 @@ from simulador_horno.numerico.integradores import METODOS, NOMBRES as NOMBRES_ME
 from simulador_horno.simulacion.simulador import Simulador
 from simulador_horno import creditos
 from simulador_horno.modelo import triac
-from simulador_horno.web import bienvenida, datos, graficas, monitor
+from simulador_horno.web import animacion, bienvenida, datos, graficas, monitor
 from simulador_horno.web import indicadores as ind
 from simulador_horno.web.ejecucion import EjecucionEnVivo
 
@@ -454,6 +454,10 @@ def main():
         _tablero(ss, modo)
 
     @st.fragment(run_every=intervalo)
+    def fragmento_horno():
+        animacion.mostrar(ss.sim)
+
+    @st.fragment(run_every=intervalo)
     def fragmento_actuador():
         _actuador(ss)
 
@@ -464,10 +468,12 @@ def main():
 
     # Pestañas normales: cambiar de pestaña no vuelve a ejecutar Python, así
     # que la corrida en vivo sigue avanzando mientras se mira la otra.
-    pestana_monitor, pestana_valores, pestana_triac, pestana_osc = st.tabs(
-        ["📈 Monitor", "🔢 Indicadores", "⚡ Actuador", "📟 Osciloscopio"])
+    pestana_monitor, pestana_horno, pestana_valores, pestana_triac, pestana_osc = st.tabs(
+        ["📈 Monitor", "🔥 Horno", "🔢 Indicadores", "⚡ Actuador", "📟 Osciloscopio"])
     with pestana_monitor:
         fragmento_monitor()
+    with pestana_horno:
+        fragmento_horno()
     with pestana_valores:
         fragmento_tablero()
         if not ss.en_vivo:

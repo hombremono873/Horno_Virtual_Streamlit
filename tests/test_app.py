@@ -58,7 +58,7 @@ def test_la_app_carga_sin_errores():
     at = abrir()
     assert any("Horno virtual" in md.value for md in at.markdown)
     assert valores(at)["Tiempo simulado"] == "0:00:00"
-    assert [t.label for t in at.tabs] == ["📈 Monitor", "🔢 Indicadores", "⚡ Actuador", "📟 Osciloscopio"]
+    assert [t.label for t in at.tabs] == ["📈 Monitor", "🔥 Horno", "🔢 Indicadores", "⚡ Actuador", "📟 Osciloscopio"]
     assert at.segmented_control(key="w_modo").value == "En vivo"     # arranca en vivo
     assert at.selectbox(key="w_velocidad").value == "x60"
     assert at.session_state.sim.config.horno.B == pytest.approx((1300 - 30) / 3000)
@@ -187,3 +187,11 @@ def test_osciloscopio_en_vivo_y_explorando():
     assert not at.exception, [e.value for e in at.exception]
     assert at.session_state.w_osc_fuente == "Explorar (ángulo a mano)" and at.session_state.w_osc_alfa == 90.0
     assert at.session_state.sim.alfa == pytest.approx(64.65, abs=0.3)   # la simulación sigue en su ángulo
+
+
+def test_interruptor_desde_la_barra_lateral():
+    at = abrir()
+    at.toggle(key="w_encendido").set_value(False).run()
+    simular(at)
+    sim = at.session_state.sim
+    assert not sim.config.actuador.encendido and sim.energia_j == 0.0 and sim.T == pytest.approx(30.0)
