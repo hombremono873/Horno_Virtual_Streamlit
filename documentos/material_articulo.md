@@ -274,6 +274,25 @@ Cerca de 180° conduce pocos grados y el error del trapecio (malla de 0,25°) pe
 
 **Diseño:** se actualiza una vez por segundo (unos 140 kB por envío) mientras el monitor va a 4 por segundo. En vivo muestra el ángulo de la simulación; con el actuador ideal, el ángulo equivalente. En modo explorar el ángulo se mueve a mano.
 
+### 7.9 Interruptor de potencia (pedido del autor, implementado 2026-10-12)
+"Así es como funciona un control": el interruptor corta la **energía** a la resistencia, pero la electrónica de control sigue funcionando (el termopar mide, el PID calcula u, el circuito sigue enviando pulsos a la compuerta). La potencia que llega es 0 y no se consume energía; el horno se enfría hacia el ambiente.
+
+**El problema del windup reaparece:** con el horno apagado, el error crece y el PID sigue "pidiendo" (u = 100 %) una potencia que no llega. Medido tras 2 h en régimen, 20 min apagado y volver a encender:
+```
+anti-windup     integral tras 20 min apagado     sobrepaso al volver a encender
+condicional     1527 (congelada)                 5,3 °C
+recorte         1527 (congelada)                 4,5 °C
+ninguno         1 326 217 (inflada)              218 °C
+```
+Solución implementada: mientras la salida está cortada, la integral se **congela** (con recorte o condicional). Sin anti-windup se deja inflar a propósito, para mostrar el problema en clase. El sobrepaso de 5 °C con el condicional es la dinámica normal de recalentar desde ~870 °C.
+
+### 7.10 Animación del horno (2026-10-12)
+Dibujo en corte del horno de joyería (SVG con transiciones CSS) que reacciona en vivo. Python envía solo unos pocos datos por refresco (menos de 1 kB).
+- **Color de incandescencia** de la cámara según su temperatura: es la escala con que los joyeros "leen" el horno a ojo. Interpolación lineal entre puntos: menos de 450 °C oscuro; 750 °C rojo (#a8220c); 1050 °C naranja (#f7962b); 1250 °C amarillo; 1350 °C casi blanco. Más caliente siempre es más brillante (probado).
+- **Resistencias** que brillan según la potencia que LLEGA: una resistencia que conduce está más caliente que la cámara (se dibuja a 600 + 700 × fracción °C). En frío y al 100 % brillan amarillas mientras la cámara sigue oscura. Apagadas toman el color de la cámara.
+- Cilindros de revestimiento (flasks de casting), **puerta** que se levanta con la perturbación y deja salir ondas de calor, termopar, interruptor de potencia.
+- **Controlador PID como los reales:** PV = lo que lee el termopar (con ruido, si está activo), SV = setpoint, OUT = u del PID (barra), luces OUT (parpadea mientras el triac conduce), MAN (manual) y AL (impulso o puerta abierta). Con el horno apagado, OUT sigue marcando lo que pide el PID y "Entrega" baja a 0 %: se ve la diferencia entre lo pedido y lo que llega.
+
 ## 8. Control manual, automático y límite de potencia (aprobado 2026-10-11)
 
 - **Automático:** el PID decide u.
@@ -349,4 +368,5 @@ En la web, los pasos se calculan con el tiempo **real** transcurrido entre refre
 
 ## Registro de cambios de este documento
 - 2026-10-11: creación con todo lo tratado hasta la implementación del triac, el control manual, el límite de potencia y el comportamiento en los extremos del ángulo.
+- 2026-10-12: secciones 7.9 (interruptor de potencia y windup al reencender) y 7.10 (animación del horno).
 - 2026-10-12: sección 7.8, el osciloscopio (canales, pulso de compuerta, lectura con el mouse, potencia integrada contra la fórmula y anécdotas de redondeo).
