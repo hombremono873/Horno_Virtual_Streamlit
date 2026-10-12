@@ -142,7 +142,10 @@ def tablero(grupos, estado):
     return _componente()(key="tablero_horno", data=datos)
 
 
-def grafica(figura, key):
-    """Cualquier otra figura que se actualiza en vivo sin parpadeo (p. ej. la del triac)."""
-    datos = {"figura": pio.to_json(figura, validate=False), "estado": []}
+def grafica(figura, key, estado=()):
+    """Cualquier otra figura que se actualiza en vivo sin parpadeo (triac, osciloscopio).
+
+    ``estado``: fragmentos HTML de la línea de texto que va encima de la figura.
+    """
+    datos = {"figura": pio.to_json(figura, validate=False), "estado": list(estado)}
     return _componente()(key=key, data=datos)

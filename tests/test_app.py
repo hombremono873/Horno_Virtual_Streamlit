@@ -58,7 +58,7 @@ def test_la_app_carga_sin_errores():
     at = abrir()
     assert any("Horno virtual" in md.value for md in at.markdown)
     assert valores(at)["Tiempo simulado"] == "0:00:00"
-    assert [t.label for t in at.tabs] == ["📈 Monitor", "🔢 Indicadores", "⚡ Actuador"]
+    assert [t.label for t in at.tabs] == ["📈 Monitor", "🔢 Indicadores", "⚡ Actuador", "📟 Osciloscopio"]
     assert at.segmented_control(key="w_modo").value == "En vivo"     # arranca en vivo
     assert at.selectbox(key="w_velocidad").value == "x60"
     assert at.session_state.sim.config.horno.B == pytest.approx((1300 - 30) / 3000)
@@ -175,3 +175,15 @@ def test_triac_compensado_desde_la_barra_lateral():
     assert sim.config.actuador.modo == "triac_compensado"
     assert sim.alfa == pytest.approx(64.65, abs=0.3) and abs(sim.T - 1000) < 0.5
     assert at.table, "falta la tabla Newton contra bisección"
+
+
+def test_osciloscopio_en_vivo_y_explorando():
+    at = abrir()
+    at.selectbox(key="w_actuador").set_value("triac_compensado").run()
+    simular(at)
+    assert not at.exception
+    at.radio(key="w_osc_fuente").set_value("Explorar (ángulo a mano)").run()
+    at.slider(key="w_osc_alfa").set_value(90.0).run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert at.session_state.w_osc_fuente == "Explorar (ángulo a mano)" and at.session_state.w_osc_alfa == 90.0
+    assert at.session_state.sim.alfa == pytest.approx(64.65, abs=0.3)   # la simulación sigue en su ángulo

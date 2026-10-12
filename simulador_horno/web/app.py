@@ -33,6 +33,8 @@ DEFECTO = Configuracion()
 MODOS = ("Corrida completa", "En vivo")
 CONTROLES = ("Automático", "Manual")
 MANUAL_POR = ("Potencia (%)", "Ángulo α (°)")
+FUENTES_OSCILOSCOPIO = ("En vivo (simulación)", "Explorar (ángulo a mano)")
+REFRESCO_OSCILOSCOPIO = 1.0   # s
 DURACIONES = limites.DURACIONES_HORAS
 SEMILLA_DEFECTO = 2026
 
@@ -300,6 +302,63 @@ def _actuador(ss):
     monitor.grafica(graficas.figura_actuador(ss.sim), key="grafica_triac")
 
 
+def _controles_osciloscopio():
+    c1, c2 = st.columns((1, 2))
+    fuente = c1.radio("Ángulo que se muestra", FUENTES_OSCILOSCOPIO, key="w_osc_fuente",
+                      help="En vivo: el ángulo con que el triac está disparando en la simulación. "
+                           "Explorar: mueve tú el ángulo de disparo.")
+    c2.slider("Ángulo de disparo para explorar (°)", 0.0, 180.0, 64.65, 0.05, key="w_osc_alfa",
+              disabled=fuente != FUENTES_OSCILOSCOPIO[1],
+              help="Por debajo del mínimo el triac conduce el ciclo completo; por encima del máximo no conduce.")
+
+
+def _angulo_osciloscopio(ss):
+    """(ángulo de disparo, aviso): el de la simulación en vivo o el que se explora a mano."""
+    sim, act = ss.sim, ss.sim.config.actuador
+    if st.session_state.get("w_osc_fuente", FUENTES_OSCILOSCOPIO[0]) == FUENTES_OSCILOSCOPIO[1]:
+        pedido = st.session_state.get("w_osc_alfa", 64.65)
+        return triac.disparo_real(pedido, act.alfa_min, act.alfa_max), f"Explorando: ángulo pedido {pedido:.2f}°"
+    if act.modo == "ideal":
+        alfa, _ = triac.angulo_compensado(sim.u) if 0 < sim.u < 1 else (180.0 if sim.u <= 0 else 0.0, 0)
+        alfa = triac.disparo_real(alfa, act.alfa_min, act.alfa_max)
+        return alfa, "Actuador ideal (sin triac): se muestra el ángulo equivalente"
+    alfa = triac.ALFA_APAGADO if sim.alfa != sim.alfa else sim.alfa   # NaN (aún sin pasos) = apagado
+    return alfa, f"En vivo · {triac.MODOS[act.modo]}"
+
+
+def _osciloscopio(ss):
+    act = ss.sim.config.actuador
+    alfa, aviso = _angulo_osciloscopio(ss)
+    ondas = triac.formas_de_onda(alfa, act.V_red, act.R, act.frecuencia, resolucion=0.5)
+    m = triac.medidas(ondas)
+    formula = triac.potencia_electrica(alfa, act.V_red, act.R)
+    if alfa <= 0:
+        disparo = "compuerta activa todo el ciclo: conducción completa"
+    elif alfa >= triac.ALFA_APAGADO:
+        disparo = "sin disparo: el triac no conduce"
+    else:
+        disparo = f"disparo α = <b>{alfa:.2f}°</b>, a {triac.tiempo_disparo_ms(alfa, act.frecuencia):.3f} ms del cruce por cero"
+    estado = [aviso, disparo,
+              f"V eficaz en la carga {m['V_rms_carga']:.1f} V",
+              f"I eficaz {m['I_rms']:.2f} A",
+              f"P media integrando la onda <b>{m['P_media']:,.1f} W</b> · fórmula {formula:,.1f} W"]
+    monitor.grafica(graficas.figura_osciloscopio(ondas, alfa, act.frecuencia), key="osciloscopio", estado=estado)
+
+
+def _explicacion_osciloscopio():
+    st.markdown(
+        "**Cómo leerlo.** En cada medio ciclo el circuito detecta el **cruce por cero** de la red (líneas punteadas), "
+        "espera el tiempo que corresponde al ángulo α y envía un **pulso corto a la compuerta** (CH5). El triac se "
+        "enciende y sigue conduciendo solo hasta el siguiente cruce por cero: por eso la onda en la resistencia "
+        "(CH2) aparece **recortada**. La corriente (CH3) tiene la misma forma porque la carga es una resistencia, "
+        "y la potencia instantánea (CH4) es voltaje × corriente: siempre positiva. Mientras el triac no conduce, "
+        "todo el voltaje de la red queda sobre él (línea gris).\n\n"
+        "Pasa el mouse sobre la pantalla para leer todos los canales en ese instante; haz clic en un canal de la "
+        "leyenda para apagarlo o encenderlo. La **potencia media** se calcula integrando la onda (regla del "
+        "trapecio) y coincide con la fórmula del triac."
+    )
+
+
 def _explicacion_triac():
     """Texto y tabla fija: cómo funciona el triac y cómo se invierte su curva."""
     st.markdown(
@@ -392,9 +451,15 @@ def main():
     def fragmento_actuador():
         _actuador(ss)
 
+    # el osciloscopio pesa más (miles de puntos) y el ángulo cambia despacio: 1 vez por segundo
+    @st.fragment(run_every=REFRESCO_OSCILOSCOPIO if ss.en_vivo else None)
+    def fragmento_osciloscopio():
+        _osciloscopio(ss)
+
     # Pestañas normales: cambiar de pestaña no vuelve a ejecutar Python, así
     # que la corrida en vivo sigue avanzando mientras se mira la otra.
-    pestana_monitor, pestana_valores, pestana_triac = st.tabs(["📈 Monitor", "🔢 Indicadores", "⚡ Actuador"])
+    pestana_monitor, pestana_valores, pestana_triac, pestana_osc = st.tabs(
+        ["📈 Monitor", "🔢 Indicadores", "⚡ Actuador", "📟 Osciloscopio"])
     with pestana_monitor:
         fragmento_monitor()
     with pestana_valores:
@@ -404,3 +469,7 @@ def main():
     with pestana_triac:
         fragmento_actuador()
         _explicacion_triac()
+    with pestana_osc:
+        _controles_osciloscopio()
+        fragmento_osciloscopio()
+        _explicacion_osciloscopio()

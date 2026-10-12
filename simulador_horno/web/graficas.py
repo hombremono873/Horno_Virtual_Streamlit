@@ -247,3 +247,68 @@ def figura_actuador(sim):
         uirevision="actuador",
     )
     return fig
+
+
+# ======================================================================
+# Osciloscopio del triac
+# ======================================================================
+_CANALES = (   # (clave, nombre, color, panel, formato del valor)
+    ("v_red", "CH1 Voltaje de la red", tema.G_SETPOINT, "y", ".1f", "V"),
+    ("v_carga", "CH2 Voltaje en la resistencia", tema.G_CORRIDAS[6], "y", ".1f", "V"),
+    ("v_triac", "Voltaje en el triac", tema.G_CERO, "y", ".1f", "V"),
+    ("corriente", "CH3 Corriente", tema.G_CORRIDAS[1], "y2", ".2f", "A"),
+    ("potencia", "CH4 Potencia instantánea", tema.G_TEMP, "y3", ".0f", "W"),
+    ("compuerta", "CH5 Pulso de compuerta", tema.G_CORRIDAS[5], "y4", ".0f", "V"),
+)
+
+
+def figura_osciloscopio(ondas, alfa, frecuencia, ciclos=2):
+    """Pantalla de osciloscopio: cuatro paneles con el MISMO eje de tiempo.
+
+    Al pasar el mouse, un solo recuadro muestra todos los canales en ese
+    instante (``hoversubplots="axis"``) y el ángulo eléctrico. Hacer clic en
+    un canal de la leyenda lo apaga o enciende, como en un osciloscopio.
+    """
+    t = [round(x, 4) for x in ondas["t_ms"]]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=t, y=[round(a % 360, 1) for a in ondas["angulo"]], name="Ángulo eléctrico",
+                             yaxis="y5", line=dict(width=0), showlegend=False,
+                             hovertemplate="Ángulo eléctrico: %{y:.1f}°<extra></extra>"))
+    for clave, nombre, color, eje, formato, unidad in _CANALES:
+        estilo = dict(color=color, width=2.0 if clave != "v_triac" else 1.2,
+                      dash="dot" if clave == "v_triac" else None, shape="hv" if clave == "compuerta" else None)
+        fig.add_trace(go.Scatter(
+            x=t, y=[round(v, 3) for v in ondas[clave]], name=nombre, yaxis=eje, line=estilo,
+            hovertemplate=f"{nombre}: %{{y:{formato}}} {unidad}<extra></extra>",
+        ))
+    periodo = 1000.0 / frecuencia
+    # cruces por cero (referencia del temporizador de disparo)
+    for k in range(2 * ciclos + 1):
+        fig.add_vline(x=k * periodo / 2, line=dict(color=tema.G_TEXTO, width=1, dash="dot"), opacity=0.25)
+    if 0 < alfa < 180:
+        disparo = alfa / 360.0 * periodo
+        fig.add_annotation(x=disparo, y=1.0, yref="paper", yanchor="bottom", showarrow=False,
+                           text=f"disparo α = {alfa:.2f}° · {disparo:.3f} ms", font=dict(color=tema.G_CORRIDAS[5]))
+    V_pico = max(abs(v) for v in ondas["v_red"]) or 1.0
+    I_pico = max(ondas["corriente"]) or V_pico / 1.0
+    P_pico = max(ondas["potencia"]) or 1.0
+    rejilla = _rgba(tema.G_TEXTO, 0.12)
+    eje = dict(gridcolor=rejilla, zeroline=True, zerolinecolor=_rgba(tema.G_TEXTO, 0.35))
+    fig.update_layout(
+        template=PLANTILLA, height=640, margin=dict(l=70, r=20, t=40, b=50),
+        plot_bgcolor="#0b0f0c", hovermode="x unified", hoversubplots="axis",
+        legend=dict(orientation="h", y=1.07, yanchor="bottom", x=0, font=dict(size=11)),
+        xaxis=dict(title=dict(text="Tiempo (ms)"), anchor="y4", range=[0, ciclos * periodo], dtick=ciclos * periodo / 10,
+                   gridcolor=rejilla, showspikes=True, spikemode="across", spikethickness=1,
+                   spikecolor=_rgba(tema.G_TEXTO, 0.5), tickformat=".1f"),
+        yaxis=dict(domain=(0.56, 1.0), title=dict(text="Voltaje (V)"), range=[-1.15 * V_pico, 1.15 * V_pico],
+                   dtick=100, **eje),
+        yaxis2=dict(domain=(0.36, 0.53), title=dict(text="Corriente (A)"),
+                    range=[-1.15 * I_pico, 1.15 * I_pico], **eje),
+        yaxis3=dict(domain=(0.16, 0.33), title=dict(text="Potencia (W)"), range=[0, 1.15 * P_pico],
+                    rangemode="tozero", **eje),
+        yaxis4=dict(domain=(0.0, 0.13), title=dict(text="Compuerta (V)"), range=[-0.5, 6.5], dtick=5, **eje),
+        yaxis5=dict(domain=(0.0, 1.0), visible=False, range=[0, 360], overlaying="y"),
+        uirevision="osciloscopio",
+    )
+    return fig
