@@ -248,6 +248,32 @@ Potencia en vatios = fracción × potencia nominal × (V/Vn)². La energía acum
 
 ---
 
+### 7.8 El osciloscopio (idea del autor, 2026-10-12)
+Pantalla de dos ciclos de la red (a 60 Hz, 16,67 ms por ciclo) con un solo eje de tiempo:
+- **CH1 voltaje de la red:** voltaje pico × sen(ángulo); voltaje pico = 220 × raíz(2) ≈ 311 V.
+- **CH2 voltaje en la resistencia:** igual a la red desde el disparo α hasta el cruce por cero; 0 antes. Es la onda **recortada**.
+- **Voltaje en el triac:** red − carga. Mientras el triac no conduce, todo el voltaje queda sobre él.
+- **CH3 corriente:** voltaje en la carga / R. Tiene la misma forma porque la carga es resistiva y está en fase.
+- **CH4 potencia instantánea:** voltaje × corriente, siempre positiva (pico ≈ 6000 W con 220 V y 16,13 Ω).
+- **CH5 pulso de compuerta:** el circuito detecta el cruce por cero, espera α (a 60 Hz cada grado son 46,3 µs; 64,65° → **2,993 ms**) y envía un pulso corto (2°, ~93 µs). El triac se enciende y sigue conduciendo solo hasta el siguiente cruce por cero: el pulso es la **causa** y la onda recortada el **efecto**. Hay un pulso por medio ciclo. Por debajo de 10° la compuerta queda activa todo el ciclo; por encima de 170° no hay pulso ni conducción.
+
+**Lectura con el mouse:** un recuadro con todos los canales en el mismo instante. Ejemplo con α = 64,65° en 186,5° eléctricos: red −35,2 V, carga 0 V, el triac bloquea los −35,2 V, corriente 0 A.
+
+**Comprobación numérica (puente con Métodos Numéricos):** la potencia media se calcula **integrando la onda** con la regla del trapecio (promedio = (1/T) × integral de voltaje × corriente) y se compara con la fórmula cerrada del triac:
+```
+α = 30°     integrada 2913,494 W   fórmula 2913,497 W   diferencia relativa 9e-7
+α = 64,65°  integrada 2291,979 W   fórmula 2291,981 W   diferencia relativa 1e-6
+α = 113,83° integrada  749,912 W   fórmula  749,910 W   diferencia relativa 3e-6
+α = 150°    integrada   86,506 W   fórmula   86,503 W   diferencia relativa 3e-5
+```
+Cerca de 180° conduce pocos grados y el error del trapecio (malla de 0,25°) pesa más. La onda tiene un **salto vertical** en el disparo; para integrarlo bien se agregan dos muestras, una justo antes y otra justo en el disparo.
+
+**Anécdotas de redondeo, buenas para el artículo:**
+- Al reducir el ángulo al medio ciclo, 360 + 64,65 da 64,6499999… en lugar de 64,65. En ese punto el triac "no conducía" y la potencia salía 0,7 W menor (0,03 %). Se corrigió con una tolerancia de 10⁻⁷ grados.
+- En α = 180° la fórmula daba −2 × 10⁻¹⁷ en lugar de 0, y la raíz cuadrada del voltaje eficaz fallaba. Se fuerza a que la fracción nunca sea negativa.
+
+**Diseño:** se actualiza una vez por segundo (unos 140 kB por envío) mientras el monitor va a 4 por segundo. En vivo muestra el ángulo de la simulación; con el actuador ideal, el ángulo equivalente. En modo explorar el ángulo se mueve a mano.
+
 ## 8. Control manual, automático y límite de potencia (aprobado 2026-10-11)
 
 - **Automático:** el PID decide u.
@@ -304,7 +330,7 @@ En la web, los pasos se calculan con el tiempo **real** transcurrido entre refre
 - **Eje centrado en el setpoint** (y el error en 0), con escala según la desviación reciente: amplio durante la subida, ±5 °C en régimen.
 - **Sin parpadeo:** el monitor es un componente que vive en el navegador y se actualiza con Plotly.react, en lugar de reconstruirse 4 veces por segundo.
 - **Ventana deslizante de 5000 muestras** (~83 min) que corre de derecha a izquierda. El diezmado es estable (por número de muestra) para que la curva no tiemble.
-- **Pestañas:** Monitor, Indicadores (incluye actuador e inercia) y Actuador (curva del triac en vivo y tabla Newton contra bisección). Cambiar de pestaña no detiene la corrida.
+- **Pestañas:** Monitor, Indicadores (incluye actuador e inercia), Actuador (curva del triac en vivo y tabla Newton contra bisección) y Osciloscopio (ver 7.8). Cambiar de pestaña no detiene la corrida.
 - **CSV estándar** (coma y punto decimal): t_s, T, T_set, error, u, P, I, D, perturbación, T_medida, alfa_grados, fracción_potencia, potencia_W, energía_kWh.
 - **Pruebas automáticas:** unas 240, en Windows y en Linux (GitHub Actions).
 
@@ -323,3 +349,4 @@ En la web, los pasos se calculan con el tiempo **real** transcurrido entre refre
 
 ## Registro de cambios de este documento
 - 2026-10-11: creación con todo lo tratado hasta la implementación del triac, el control manual, el límite de potencia y el comportamiento en los extremos del ángulo.
+- 2026-10-12: sección 7.8, el osciloscopio (canales, pulso de compuerta, lectura con el mouse, potencia integrada contra la fórmula y anécdotas de redondeo).
