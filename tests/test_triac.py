@@ -147,3 +147,45 @@ def test_dispersion_reproducible_con_semilla():
     b = correr(modo="triac_compensado", dispersion=0.5, resolucion=1.0)
     assert a.historial.temperaturas == b.historial.temperaturas
     assert all(x == round(x) for x in a.historial.alfas)        # resolución de 1°
+
+
+# ---- formas de onda (osciloscopio) ----------------------------------------
+R_HORNO = triac.resistencia(3000.0, 220.0)
+
+
+@pytest.mark.parametrize("alfa", [0.0, 30.0, 64.65, 90.0, 113.83, 150.0, 170.0, 180.0])
+def test_potencia_integrada_coincide_con_la_formula(alfa):
+    """Integrar la onda con el trapecio da la misma potencia que la fórmula del triac."""
+    m = triac.medidas(triac.formas_de_onda(alfa, 220.0, R_HORNO))
+    formula = triac.potencia_electrica(alfa, 220.0, R_HORNO)
+    tol = 1e-4 if alfa < 150 else 1e-3        # cerca de 180° conduce pocos grados: la malla de 0,25° pesa más
+    assert m["P_media"] == pytest.approx(formula, rel=tol, abs=1e-6)
+    assert m["I_rms"] == pytest.approx(math.sqrt(formula / R_HORNO), rel=tol, abs=1e-6)
+    assert m["V_rms_carga"] == pytest.approx(triac.voltaje_rms(alfa, 220.0), rel=tol, abs=1e-6)
+
+
+def test_onda_recortada_y_pulso_de_compuerta():
+    o = triac.formas_de_onda(64.65, 220.0, R_HORNO, frecuencia=60.0, ciclos=2)
+    assert max(o["v_red"]) == pytest.approx(220.0 * math.sqrt(2), rel=1e-6)    # 311 V de pico
+    assert o["t_ms"][-1] == pytest.approx(2000 / 60)                            # dos ciclos: 33,3 ms
+    for a, v, vc, i, p, vt, g in zip(o["angulo"], o["v_red"], o["v_carga"], o["corriente"],
+                                    o["potencia"], o["v_triac"], o["compuerta"]):
+        fase = a % 180.0
+        if fase < 64.6:                                    # antes del disparo: nada pasa a la carga
+            assert vc == pytest.approx(0.0, abs=1e-9) and i == pytest.approx(0.0, abs=1e-9)
+            assert vt == pytest.approx(v, abs=1e-9)
+        if 64.7 < fase < 179.9:                            # conduciendo: la carga sigue a la red
+            assert vc == pytest.approx(v) and vt == pytest.approx(0.0, abs=1e-9)
+        assert p >= 0.0 and i == pytest.approx(vc / R_HORNO)
+        assert g == (triac.V_COMPUERTA if 64.65 - 1e-7 <= fase < 64.65 + triac.ANCHO_PULSO else 0.0)
+    pulsos = sum(1 for g0, g1 in zip(o["compuerta"], o["compuerta"][1:]) if g0 == 0.0 and g1 > 0.0)
+    assert pulsos == 4                                    # un pulso por medio ciclo
+    assert triac.tiempo_disparo_ms(64.65, 60.0) == pytest.approx(2.993, abs=1e-3)
+
+
+def test_extremos_en_el_osciloscopio():
+    apagado = triac.formas_de_onda(180.0, 220.0, R_HORNO)
+    assert not any(apagado["v_carga"]) and not any(apagado["compuerta"])     # sin pulso, sin corriente
+    completo = triac.formas_de_onda(0.0, 220.0, R_HORNO)
+    assert completo["v_carga"] == completo["v_red"]                          # conduce todo el ciclo
+    assert all(g == triac.V_COMPUERTA for g in completo["compuerta"])        # compuerta activa siempre

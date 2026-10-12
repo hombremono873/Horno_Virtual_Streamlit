@@ -42,7 +42,8 @@ METODOS_INVERSION = {"newton": "Newton-Raphson", "biseccion": "Bisección"}
 def fraccion_potencia(alfa):
     """Fracción de la potencia máxima que entrega el triac con ángulo ``alfa`` (grados)."""
     alfa = min(max(alfa, 0.0), 180.0)
-    return 1.0 - alfa / 180.0 + math.sin(2.0 * math.radians(alfa)) / (2.0 * math.pi)
+    # max(0, …): en 180° el redondeo daría −2e-17 (y la raíz del voltaje eficaz fallaría)
+    return max(0.0, 1.0 - alfa / 180.0 + math.sin(2.0 * math.radians(alfa)) / (2.0 * math.pi))
 
 
 def derivada_fraccion(alfa):
@@ -209,3 +210,96 @@ class Triac:
 
 def energia_kwh(joules):
     return joules / 3.6e6
+
+
+# ======================================================================
+# Formas de onda (osciloscopio)
+# ======================================================================
+ANCHO_PULSO = 2.0       # grados eléctricos del pulso de compuerta (~93 µs a 60 Hz)
+_EPS_FASE = 1e-7        # tolerancia del redondeo al reducir el ángulo al medio ciclo (360 + 64,65 → 64,6499…)
+V_COMPUERTA = 5.0       # V del pulso de compuerta
+
+
+def tiempo_disparo_ms(alfa, frecuencia):
+    """Milisegundos desde el cruce por cero hasta el disparo: α/360 de un periodo."""
+    return alfa / 360.0 / frecuencia * 1000.0
+
+
+def _conduce(fase, alfa):
+    """¿Conduce el triac en ese punto del medio ciclo (``fase`` en [0, 180))?"""
+    if alfa <= 0.0:
+        return True                 # compuerta activa todo el ciclo: conducción completa
+    if alfa >= ALFA_APAGADO:
+        return False                # sin disparo
+    return fase >= alfa - _EPS_FASE
+
+
+def _compuerta(fase, alfa, ancho):
+    if alfa <= 0.0:
+        return V_COMPUERTA          # compuerta activa todo el tiempo
+    if alfa >= ALFA_APAGADO:
+        return 0.0
+    return V_COMPUERTA if alfa - _EPS_FASE <= fase < alfa + ancho else 0.0
+
+
+def formas_de_onda(alfa, V_red, R, frecuencia=60.0, ciclos=2, resolucion=0.25, ancho_pulso=ANCHO_PULSO):
+    """Señales de un osciloscopio sobre la carga resistiva del horno.
+
+    Para ``ciclos`` ciclos de la red, muestreados cada ``resolucion`` grados
+    eléctricos (más un punto justo antes y otro justo en cada disparo, para
+    que el salto de la onda quede vertical), devuelve un dict de listas:
+
+    - ``t_ms``, ``angulo``      : tiempo (ms) y ángulo eléctrico (grados, 0 a 360·ciclos);
+    - ``v_red``                 : V_pico·sen(ángulo), con V_pico = V_red·raíz(2);
+    - ``v_carga``               : la onda recortada: igual a la red mientras el
+                                  triac conduce (desde α hasta el cruce por cero), 0 si no;
+    - ``corriente``             : v_carga / R (carga resistiva: en fase con el voltaje);
+    - ``potencia``              : v_carga · corriente (siempre ≥ 0);
+    - ``v_triac``               : v_red − v_carga (lo que aguanta el triac apagado);
+    - ``compuerta``             : el pulso de disparo en cada medio ciclo.
+    """
+    V_pico = V_red * math.sqrt(2.0)
+    total = 360.0 * ciclos
+    angulos = [i * resolucion for i in range(int(round(total / resolucion)) + 1)]
+    if 0.0 < alfa < ALFA_APAGADO:
+        for medio in range(2 * ciclos):
+            disparo = medio * 180.0 + alfa
+            angulos += [disparo - 1e-6, disparo]
+    angulos = sorted(set(a for a in angulos if 0.0 <= a <= total))
+    ondas = {k: [] for k in ("t_ms", "angulo", "v_red", "v_carga", "corriente", "potencia", "v_triac", "compuerta")}
+    for a in angulos:
+        fase = a % 180.0
+        if a == total:
+            fase = 180.0            # el último punto cierra el medio ciclo (cruce por cero)
+        v = V_pico * math.sin(math.radians(a))
+        vc = v if _conduce(fase, alfa) else 0.0
+        i = vc / R
+        ondas["t_ms"].append(a / 360.0 / frecuencia * 1000.0)
+        ondas["angulo"].append(a)
+        ondas["v_red"].append(v)
+        ondas["v_carga"].append(vc)
+        ondas["corriente"].append(i)
+        ondas["potencia"].append(vc * i)
+        ondas["v_triac"].append(v - vc)
+        ondas["compuerta"].append(_compuerta(fase, alfa, ancho_pulso))
+    return ondas
+
+
+def _promedio(t, y):
+    """Promedio temporal por la regla del trapecio: (1/T)·∫ y dt."""
+    area = sum(0.5 * (y[k] + y[k - 1]) * (t[k] - t[k - 1]) for k in range(1, len(t)))
+    return area / (t[-1] - t[0])
+
+
+def medidas(ondas):
+    """Lo que mediría un osciloscopio, integrando las ondas con la regla del trapecio.
+
+    Devuelve ``V_rms_carga``, ``I_rms`` y ``P_media`` (W). La potencia media
+    debe coincidir con la fórmula del triac: es la comprobación numérica.
+    """
+    t = ondas["t_ms"]
+    return {
+        "V_rms_carga": math.sqrt(_promedio(t, [v * v for v in ondas["v_carga"]])),
+        "I_rms": math.sqrt(_promedio(t, [i * i for i in ondas["corriente"]])),
+        "P_media": _promedio(t, ondas["potencia"]),
+    }
