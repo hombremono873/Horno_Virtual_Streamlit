@@ -1,6 +1,14 @@
 # Tema de la app web, coherente con simulador_horno/estilos/tema.py
 # (los mismos colores del monitor de la versión de escritorio).
 
+[global]
+# Sin caché de mensajes. Streamlit guarda los mensajes de más de 10 kB y los
+# vence tras 2 ejecuciones; con varios fragmentos que se ejecutan solos varias
+# veces por segundo (monitor, horno, osciloscopio...) el navegador los vencía
+# antes de tiempo y aparecía "Cached ForwardMsg MISS". Las gráficas cambian en
+# cada refresco, así que la caché casi nunca ahorraba nada.
+minCachedMessageSize = 1e12
+
 [theme]
 base = "dark"
 primaryColor = "#89b4fa"             # G_CORRIDAS[0]
